@@ -11,6 +11,7 @@
     "@openzeppelin/contracts": "^4.7.3",
     "@openzeppelin/contracts-upgradeable": "^4.7.3",
     "@openzeppelin/hardhat-upgrades": "^1.20.0",
+    "@openzeppelin/merkle-tree": "^1.0.1",
     "@openzeppelin/test-helpers": "^0.5.15",
     "chai": "^4.3.4",
     "dotenv": "^8.2.0",
@@ -21,6 +22,7 @@
     "ethers": "^5.5.1",
     "hardhat": "^2.12.1",
     "hardhat-gas-reporter": "^1.0.4",
+    "merkletreejs": "^0.3.9",
     "prettier": "^2.4.1",
     "prettier-plugin-solidity": "^1.0.0-beta.18",
     "solc-0.8": "npm:solc@0.8.15",
@@ -30,6 +32,9 @@
   "scripts": {
     "docgen": "npx solidity-docgen --solc-module solc-0.8 -t ./docs/templates",
     "lint": "npx eslint ./test && npx eslint ./deployment",
-    "lint:fix": "npx eslint ./test --fix && npx eslint ./deployment --fix"
+    "lint:fix": "npx eslint ./test --fix && npx eslint ./deployment --fix",
+    "deploy:PoE2_0:hardhat": "npx hardhat run deployment/deployDappnodeSmoothingPool.js --network hardhat",
+    "deploy:PoE2_0:goerli": "npx hardhat run deployment/deployDappnodeSmoothingPool.js --network goerli",
+    "verify:PoE2_0:goerli": "npx hardhat run deployment/verifyDappnodeSmoothingPool.js --network goerli"
   }
 }

@@ -12,8 +12,8 @@ contract DappnodeSmoothingPool is Initializable {
     // Wrapped Token information struct
     struct Suscription {
         address depositAddress;
-        uint64 timestampStart;
-        uint64 timestampEnd;
+        uint32 blockStart;
+        uint32 blockEnd;
         address poolRecipient;
     }
 
@@ -25,7 +25,7 @@ contract DappnodeSmoothingPool is Initializable {
     mapping(uint32 => Suscription) public validatorToSuscription;
 
     // Rewards merkle root, aggregate together all the validatorIDs with the same deposit address and pool recipient
-    // Leaf:keccak256(abi.encodePacked(depositAddress, poolRecipient, availableBalance, ubanBalance)
+    // Leaf:keccak256(abi.encodePacked(depositAddress, poolRecipient, availableBalance, unbanBalance)
     bytes32 public rewardsRoot;
 
     // depositAddress --> claimedBalance
@@ -54,6 +54,15 @@ contract DappnodeSmoothingPool is Initializable {
     event UnsuscribeValidator(uint32 validatorID);
 
     /**
+     * @dev Emitted when suscription is updated
+     */
+    event UpdateSuscription(
+        uint32 validatorID,
+        address newPoolRecipient,
+        bool reactivateSuscription
+    );
+
+    /**
      * @dev Emitted when a user claim his rewards
      */
     event ClaimRewards(
@@ -76,6 +85,11 @@ contract DappnodeSmoothingPool is Initializable {
      * @dev Emitted when the contract receives ether without data
      */
     event Donation(uint256 donationAmount);
+
+    /**
+     * @dev Emitted when an account is unbanned
+     */
+    event UnbannValidator(address depositAddress);
 
     /**
      * @param _suscriptionsRoot Suscriptions merkle root
@@ -109,14 +123,14 @@ contract DappnodeSmoothingPool is Initializable {
      * @param depositAddress Deposit address
      * @param poolRecipient Pool recipient
      * @param availableBalance Total available balance to claim
-     * @param ubanBalance Balance that the user should pay in order to be unbaned
+     * @param unbanBalance Balance that the user should pay in order to be unbaned
      * @param merkleProof Merkle proof agains rewardsRoot
      */
     function claimRewards(
         address depositAddress,
         address poolRecipient,
         uint256 availableBalance,
-        uint256 ubanBalance,
+        uint256 unbanBalance,
         bytes32[] memory merkleProof
     ) public {
         // Verify the merkle proof
@@ -125,22 +139,23 @@ contract DappnodeSmoothingPool is Initializable {
                 depositAddress,
                 poolRecipient,
                 availableBalance,
-                ubanBalance
+                unbanBalance
             )
         );
+
         require(
             MerkleProofUpgradeable.verify(merkleProof, rewardsRoot, node),
-            "DappnodeSmoothingPool::claimRewards Invalid proof."
+            "DappnodeSmoothingPool::claimRewards Invalid proof"
         );
 
         // Get claimable ether
         uint256 totalClaimable = availableBalance -
             claimedBalance[depositAddress];
 
+        // Send ether
         (bool success, ) = poolRecipient.call{value: totalClaimable}(
             new bytes(0)
         );
-
         require(
             success,
             "DappnodeSmoothingPool::claimRewards: ETH_TRANSFER_FAILED"
@@ -164,14 +179,19 @@ contract DappnodeSmoothingPool is Initializable {
         bytes32[] calldata merkleProof
     ) public {
         // Verify the merkle proof.
-        bytes32 node = keccak256(abi.encodePacked(validatorID, msg.sender));
+        bytes32 node = keccak256(abi.encodePacked(msg.sender, validatorID));
         require(
             MerkleProofUpgradeable.verify(merkleProof, suscriptionsRoot, node),
-            "DappnodeSmoothingPool::suscription Invalid proof."
+            "DappnodeSmoothingPool::suscription Invalid proof"
         );
 
         // Create new suscription
-        _newSuscription(validatorID, poolRecipient);
+        _newSuscription(
+            msg.sender,
+            validatorID,
+            poolRecipient,
+            uint32(block.number)
+        );
     }
 
     // TODO You can be banned and desuscribe?
@@ -191,21 +211,23 @@ contract DappnodeSmoothingPool is Initializable {
         );
 
         require(
-            validatorSuscription.timestampEnd == 0,
+            validatorSuscription.blockEnd == 0,
             "DappnodeSmoothingPool::unsuscribeValidator validator already unsuscribed"
         );
-        validatorSuscription.timestampEnd = uint64(block.timestamp);
+
+        validatorSuscription.blockEnd = uint32(block.number);
 
         emit UnsuscribeValidator(validatorID);
     }
 
-    // TODO can the timestamps be updated?
+    // TODO reactivate suscription?
+
     /**
      * @notice Update suscription
      * @param validatorID Validator ID
-     * @param poolRecipient Pool recipient
+     * @param newPoolRecipient Pool recipient
      */
-    function updateSuscription(uint32 validatorID, address poolRecipient)
+    function updateSuscription(uint32 validatorID, address newPoolRecipient)
         public
     {
         // Check if it's already suscribed
@@ -217,7 +239,62 @@ contract DappnodeSmoothingPool is Initializable {
             "DappnodeSmoothingPool::updateSuscription deposit address must match msg.sender"
         );
 
-        validatorSuscription.poolRecipient = poolRecipient;
+        validatorSuscription.poolRecipient = newPoolRecipient;
+
+        // Reactivate suscription
+        bool reactivateSuscription;
+        if (validatorSuscription.blockEnd != 0) {
+            validatorSuscription.blockEnd = 0;
+            validatorSuscription.blockStart = uint32(block.number);
+            reactivateSuscription = true;
+        }
+
+        emit UpdateSuscription(
+            validatorID,
+            newPoolRecipient,
+            reactivateSuscription
+        );
+    }
+
+    // should the account must be banned? or just the validatorID?
+
+    /**
+     * @notice Unbann account
+     * All the rewards that has the same deposit address and pool recipeint are aggregated in the same leaf
+     * @param depositAddress Deposit address
+     * @param poolRecipient Pool recipient
+     * @param availableBalance Total available balance to claim
+     * @param unbanBalance Balance that the user should pay in order to be unbaned
+     * @param merkleProof Merkle proof agains rewardsRoot
+     */
+    function unbannAccount(
+        address depositAddress,
+        address poolRecipient,
+        uint256 availableBalance,
+        uint256 unbanBalance,
+        bytes32[] memory merkleProof
+    ) public payable {
+        // Verify the merkle proof
+        bytes32 node = keccak256(
+            abi.encodePacked(
+                depositAddress,
+                poolRecipient,
+                availableBalance,
+                unbanBalance
+            )
+        );
+        require(
+            MerkleProofUpgradeable.verify(merkleProof, rewardsRoot, node),
+            "DappnodeSmoothingPool::unbannValidator Invalid proof."
+        );
+
+        // Get claimable ether
+        require(
+            unbanBalance == msg.value,
+            "DappnodeSmoothingPool::unbannValidator msg value do not match balance."
+        );
+
+        emit UnbannValidator(depositAddress);
     }
 
     ////////////////////
@@ -248,23 +325,30 @@ contract DappnodeSmoothingPool is Initializable {
     /**
      * @notice Suscribe on behalf of the users
      * @param validatorID Validator ID array
-     * @param depositAddress Deposit address array
+     * @param validatorAddress Deposit address array
+     * @param blockStart block start array
      */
     function suscribeOracle(
         uint32[] memory validatorID,
-        address[] memory depositAddress
+        address[] memory validatorAddress,
+        uint32[] memory blockStart
     ) public onlyOracle {
         require(
-            validatorID.length == depositAddress.length,
+            validatorID.length == validatorAddress.length,
             "DappnodeSmoothingPool::suscribeOracle arrays must have smae length"
         );
         for (uint256 i = 0; i < validatorID.length; i++) {
             // Create new suscription if does not exist yet
             if (
-                validatorToSuscription[validatorID[i]].depositAddress !=
+                validatorToSuscription[validatorID[i]].depositAddress ==
                 address(0)
             ) {
-                _newSuscription(validatorID[i], depositAddress[i]);
+                _newSuscription(
+                    validatorAddress[i],
+                    validatorID[i],
+                    validatorAddress[i],
+                    blockStart[i]
+                );
             }
         }
     }
@@ -279,26 +363,30 @@ contract DappnodeSmoothingPool is Initializable {
      * @param validatorID Validator ID
      * @param poolRecipient Pool recipient
      */
-    function _newSuscription(uint32 validatorID, address poolRecipient)
-        internal
-    {
+    function _newSuscription(
+        address depositAddress,
+        uint32 validatorID,
+        address poolRecipient,
+        uint32 blockStart
+    ) internal {
         // Check if it's already suscribed
         Suscription storage validatorSuscription = validatorToSuscription[
             validatorID
         ];
         require(
-            validatorSuscription.depositAddress != address(0),
+            validatorSuscription.depositAddress == address(0),
             "DappnodeSmoothingPool::_newSuscription validator already suscribed"
         );
 
         // Add suscription to mapping
         validatorToSuscription[validatorID] = Suscription({
-            depositAddress: msg.sender,
-            timestampStart: uint64(block.timestamp),
-            timestampEnd: 0,
+            depositAddress: depositAddress,
+            blockStart: blockStart,
+            blockEnd: 0,
             poolRecipient: poolRecipient
         });
 
-        emit SuscribeValidator(validatorID, msg.sender, poolRecipient);
+        // Might be worth to emit diferent event if its oracle suscription
+        emit SuscribeValidator(validatorID, depositAddress, poolRecipient);
     }
 }

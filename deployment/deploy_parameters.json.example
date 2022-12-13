@@ -1,14 +1,5 @@
 {
-    "trustedSequencerURL": "http://zkevm-json-rpc:8123",
-    "forceBatchAllowed": false,
-    "trustedSequencerAddress":"0x617b3a3528F9cDd6630fd3301B9c8911F7Bf063D",
-    "realVerifier": false,
-    "chainID": 1001,
-    "networkName": "zkevm",
-    "privateKey": "",
-    "maxFeePerGas":0,
-    "maxPriorityFeePerGas":0,
-    "multiplierGas": 0,
-    "trustedSequencerPvtKey":"",
-    "bridgeMock":false
+    "suscriptionMerkleTree": "0xf731f300a1bbcaa816541b0890767c94a8d5f59c3eff69a7a7abd7fac791c250",
+    "oracleAddress":"0x617b3a3528F9cDd6630fd3301B9c8911F7Bf063D",
+    "multiplierGas": 0
 }
