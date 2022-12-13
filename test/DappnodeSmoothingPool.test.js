@@ -196,12 +196,16 @@ describe('DappnodeSmoothingPool test', () => {
             .to.be.revertedWith('DappnodeSmoothingPool::claimRewards: ETH_TRANSFER_FAILED');
 
         // Send ether
-        await deployer.sendTransaction({
+        await expect(deployer.sendTransaction({
             to: dappnodeSmoothingPool.address,
             value: availableBalance,
-        });
+        })).to.emit(dappnodeSmoothingPool, 'Donation')
+            .withArgs(availableBalance);
 
-        await expect(dappnodeSmoothingPool.connect(addressValidator1).claimRewards(
+        // Check events
+
+        const balancePoolRecipient = await ethers.provider.getBalance(poolRecipient);
+        await expect(dappnodeSmoothingPool.connect(deployer).claimRewards(
             depositAddress,
             poolRecipient,
             availableBalance,
@@ -210,6 +214,9 @@ describe('DappnodeSmoothingPool test', () => {
         ))
             .to.emit(dappnodeSmoothingPool, 'ClaimRewards')
             .withArgs(depositAddress, poolRecipient, availableBalance);
+
+        const balancePoolRecipientAfter = await ethers.provider.getBalance(poolRecipient);
+        expect(balancePoolRecipient.add(availableBalance)).to.be.equal(balancePoolRecipientAfter)
     });
 });
 
