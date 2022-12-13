@@ -1,11 +1,11 @@
 /* eslint-disable import/no-dynamic-require, no-await-in-loop, no-restricted-syntax, guard-for-in */
 require('dotenv').config();
-// const path = require('path');
+const path = require('path');
 const hre = require('hardhat');
 const { expect } = require('chai');
 // const { ethers } = require('hardhat');
 
-const openzeppelinUpgrade = require(`../../.openzeppelin/${process.env.HARDHAT_NETWORK}.json`);
+const openzeppelinUpgrade = require(`../.openzeppelin/${process.env.HARDHAT_NETWORK}.json`);
 
 const pathDeployOutputParameters = path.join(__dirname, './deploy_output.json');
 const deployOutputParameters = require(pathDeployOutputParameters);
