@@ -218,6 +218,37 @@ describe('DappnodeSmoothingPool test', () => {
         const balancePoolRecipientAfter = await ethers.provider.getBalance(poolRecipient);
         expect(balancePoolRecipient.add(availableBalance)).to.be.equal(balancePoolRecipientAfter)
     });
+
+    it('Should verify all proofs', async () => {
+        const valuesRewards = [
+            // depositAddress, poolRecipient, availableBalance, unbanBalance
+            ['0x1000000000000000000000000000000000000000', '0x0100000000000000000000000000000000000000', '10000', '0'],
+            ['0x2000000000000000000000000000000000000000', '0x0200000000000000000000000000000000000000', '20000', '0'],
+            ['0x3000000000000000000000000000000000000000', '0x0300000000000000000000000000000000000000', '30000', '0'],
+            ['0x4000000000000000000000000000000000000000', '0x0400000000000000000000000000000000000000', '40000', '0'],
+            ['0x5000000000000000000000000000000000000000', '0x0500000000000000000000000000000000000000', '50000', '0'],
+            ['0x6000000000000000000000000000000000000000', '0x0600000000000000000000000000000000000000', '60000', '0'],
+        ];
+        const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'address', 'uint256', 'uint256'], rewardLeaf));
+        const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true });
+
+        // Update rewards root
+        await expect(dappnodeSmoothingPool.connect(oracle).updateRewardsRoot(rewardsMerkleTree.getHexRoot()))
+            .to.emit(dappnodeSmoothingPool, 'UpdateRewardsRoot')
+            .withArgs(rewardsMerkleTree.getHexRoot());
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(rewardsMerkleTree.getHexRoot());
+
+        for (let valIndex = 0; valIndex < valuesRewards.length; valIndex++) {
+            // Check claimRewards
+            await expect(dappnodeSmoothingPool.claimRewards(
+                valuesRewards[valIndex][0],
+                valuesRewards[valIndex][1],
+                valuesRewards[valIndex][2],
+                valuesRewards[valIndex][3],
+                rewardsMerkleTree.getHexProof(leafsRewards[valIndex])))
+                .to.be.revertedWith('DappnodeSmoothingPool::claimRewards: ETH_TRANSFER_FAILED');
+        }
+    });
 });
 
 /*
