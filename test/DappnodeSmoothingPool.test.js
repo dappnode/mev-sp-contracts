@@ -7,230 +7,218 @@ const { MerkleTree } = require('merkletreejs');
 describe('DappnodeSmoothingPool test', () => {
     let deployer;
     let oracle;
-    let addressValidator1; let addressValidator2; let
-        poolRecipient1;
+    let validator1; let validator2; let
+        rewardRecipientValidator2;
 
     let dappnodeSmoothingPool;
 
-    let valuesSuscription;
-    let leafsSuscriptions;
-    let suscriptionMerkleTree;
+    const suscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther("0.01"));
 
     beforeEach('Deploy contract', async () => {
         // Load signers
-        [deployer, oracle, addressValidator1, addressValidator2, poolRecipient1] = await ethers.getSigners();
-
-        // Load Merkle Trees
-        valuesSuscription = [
-            [addressValidator1.address, 1],
-            [addressValidator2.address, 2],
-        ];
-        leafsSuscriptions = valuesSuscription.map((suscription) => ethers.utils.solidityKeccak256(['address', 'uint32'], suscription));
-        suscriptionMerkleTree = new MerkleTree(
-            leafsSuscriptions,
-            ethers.utils.keccak256,
-            { sortPairs: true },
-        ); // sort : true? leafs sorted too?
+        [deployer, oracle, validator1, validator2, rewardRecipientValidator2, donator] = await ethers.getSigners();
 
         // Deploy dappnode smoothing pool
         const dappnodeSmoothingPoolFactory = await ethers.getContractFactory('DappnodeSmoothingPool');
         dappnodeSmoothingPool = await upgrades.deployProxy(
             dappnodeSmoothingPoolFactory,
             [
-                suscriptionMerkleTree.getHexRoot(),
                 oracle.address,
+                suscriptionCollateral
             ],
         );
         await dappnodeSmoothingPool.deployed();
     });
 
     it('should check the initialize', async () => {
-        expect(await dappnodeSmoothingPool.suscriptionsRoot()).to.be.equal(suscriptionMerkleTree.getHexRoot());
         expect(await dappnodeSmoothingPool.oracle()).to.be.equal(oracle.address);
+        expect(await dappnodeSmoothingPool.suscriptionCollateral()).to.be.equal(suscriptionCollateral);
     });
 
-    it('Should chek suscription', async () => {
-        const merkleProofInvalid = suscriptionMerkleTree.getHexProof(leafsSuscriptions[1]);
-        const merkleProof = suscriptionMerkleTree.getHexProof(leafsSuscriptions[0]);
+    it('should check the initialize', async () => {
+        const donationValue = ethers.utils.parseEther("1");
+        await expect(donator.sendTransaction({
+            to: dappnodeSmoothingPool.address,
+            value: donationValue
+        })).to.emit(dappnodeSmoothingPool, "EtherReceived").withArgs(donator.address, donationValue)
+
+        await expect(donator.sendTransaction({
+            to: dappnodeSmoothingPool.address,
+            value: donationValue,
+            data: "0x123123123132"
+        })).to.emit(dappnodeSmoothingPool, "EtherReceived").withArgs(donator.address, donationValue)
+    });
+
+
+    it('Should suscribe validator and unsuscribe', async () => {
         const validatorID = 1;
 
         // Check suscribeValidator
-        await expect(dappnodeSmoothingPool.connect(addressValidator1).suscribeValidator(
-            validatorID,
-            poolRecipient1.address,
-            merkleProofInvalid,
-        ))
-            .to.be.revertedWith('DappnodeSmoothingPool::suscription Invalid proof');
+        await expect(dappnodeSmoothingPool.suscribeValidator(validatorID))
+            .to.be.revertedWith('DappnodeSmoothingPool::suscribeValidator: msg.value does not equal suscription collateral');
 
-        await expect(dappnodeSmoothingPool.connect(addressValidator1).suscribeValidator(
-            validatorID,
-            poolRecipient1.address,
-            merkleProof,
-        ))
+        await expect(dappnodeSmoothingPool.suscribeValidator(validatorID, { value: suscriptionCollateral.add(1) }))
+            .to.be.revertedWith('DappnodeSmoothingPool::suscribeValidator: msg.value does not equal suscription collateral');
+
+        const initialSmoothingPoolEther = await ethers.provider.getBalance(dappnodeSmoothingPool.address);
+
+        await expect(dappnodeSmoothingPool.suscribeValidator(validatorID, { value: suscriptionCollateral }))
             .to.emit(dappnodeSmoothingPool, 'SuscribeValidator')
-            .withArgs(validatorID, addressValidator1.address, poolRecipient1.address);
+            .withArgs(suscriptionCollateral, validatorID);
 
-        // Check suscription
-        const suscriptionBlockNumber = await ethers.provider.getBlockNumber();
-        let suscription = await dappnodeSmoothingPool.validatorToSuscription(1);
-        expect(await suscription.depositAddress).to.be.equal(addressValidator1.address);
-        expect(await suscription.blockStart).to.be.equal(suscriptionBlockNumber);
-        expect(await suscription.blockEnd).to.be.equal(0);
-        expect(await suscription.poolRecipient).to.be.equal(poolRecipient1.address);
+        expect(await ethers.provider.getBalance(dappnodeSmoothingPool.address))
+            .to.be.equal(initialSmoothingPoolEther.add(suscriptionCollateral))
 
-        await expect(dappnodeSmoothingPool.connect(addressValidator1).suscribeValidator(
-            validatorID,
-            poolRecipient1.address,
-            merkleProof,
-        ))
-            .to.be.revertedWith('DappnodeSmoothingPool::_newSuscription validator already suscribed');
 
-        // Check update suscription
-        await expect(dappnodeSmoothingPool.connect(deployer).updateSuscription(validatorID, deployer.address))
-            .to.be.revertedWith('DappnodeSmoothingPool::updateSuscription deposit address must match msg.sender');
-
-        await expect(dappnodeSmoothingPool.connect(addressValidator1).updateSuscription(
-            validatorID,
-            addressValidator1.address,
-        ))
-            .to.emit(dappnodeSmoothingPool, 'UpdateSuscription')
-            .withArgs(validatorID, addressValidator1.address, false);
-
-        suscription = await dappnodeSmoothingPool.validatorToSuscription(1);
-        expect(await suscription.depositAddress).to.be.equal(addressValidator1.address);
-        expect(await suscription.blockStart).to.be.equal(suscriptionBlockNumber);
-        expect(await suscription.blockEnd).to.be.equal(0);
-        expect(await suscription.poolRecipient).to.be.equal(addressValidator1.address);
-
-        // Check unsuscribeValidator
-        await expect(dappnodeSmoothingPool.connect(deployer).unsuscribeValidator(validatorID))
-            .to.be.revertedWith('DappnodeSmoothingPool::unsuscribeValidator validator has not been suscribed');
-
-        await expect(dappnodeSmoothingPool.connect(addressValidator1).unsuscribeValidator(validatorID))
+        await expect(dappnodeSmoothingPool.unsuscribeValidator(validatorID))
             .to.emit(dappnodeSmoothingPool, 'UnsuscribeValidator')
-            .withArgs(validatorID);
-
-        const unSuscriptionBlockNumber = await ethers.provider.getBlockNumber();
-        suscription = await dappnodeSmoothingPool.validatorToSuscription(1);
-        expect(await suscription.depositAddress).to.be.equal(addressValidator1.address);
-        expect(await suscription.blockStart).to.be.equal(suscriptionBlockNumber);
-        expect(await suscription.blockEnd).to.be.equal(unSuscriptionBlockNumber);
-        expect(await suscription.poolRecipient).to.be.equal(addressValidator1.address);
+            .withArgs(deployer.address, validatorID);
     });
 
+
     it('should check oracle methods', async () => {
-        // Check update suscriptions root
-        expect(await dappnodeSmoothingPool.suscriptionsRoot()).to.be.equal(suscriptionMerkleTree.getHexRoot());
-
-        await expect(dappnodeSmoothingPool.connect(deployer).updateSuscriptionsRoot(ethers.constants.HashZero))
-            .to.be.revertedWith('DappnodeSmoothingPool::onlyOracle: only oracle');
-
-        await expect(dappnodeSmoothingPool.connect(oracle).updateSuscriptionsRoot(ethers.constants.HashZero))
-            .to.emit(dappnodeSmoothingPool, 'UpdateSuscriptionsRoot')
-            .withArgs(ethers.constants.HashZero);
-
-        expect(await dappnodeSmoothingPool.suscriptionsRoot()).to.be.equal(ethers.constants.HashZero);
-
         // Check update updateRewardsRoot root
         expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(ethers.constants.HashZero);
 
-        await expect(dappnodeSmoothingPool.connect(deployer).updateRewardsRoot(suscriptionMerkleTree.getHexRoot()))
-            .to.be.revertedWith('DappnodeSmoothingPool::onlyOracle: only oracle');
-
-        await expect(dappnodeSmoothingPool.connect(oracle).updateRewardsRoot(suscriptionMerkleTree.getHexRoot()))
-            .to.emit(dappnodeSmoothingPool, 'UpdateRewardsRoot')
-            .withArgs(suscriptionMerkleTree.getHexRoot());
-        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(suscriptionMerkleTree.getHexRoot());
-
-        // Check suscribe oracle
-        const suscriptionBlockNumber = await ethers.provider.getBlockNumber();
-        const validatorID = 10;
-
-        await expect(dappnodeSmoothingPool.connect(deployer).suscribeOracle(
-            [validatorID],
-            [poolRecipient1.address],
-            [suscriptionBlockNumber],
-        ))
-            .to.be.revertedWith('DappnodeSmoothingPool::onlyOracle: only oracle');
-        await expect(dappnodeSmoothingPool.connect(oracle).suscribeOracle(
-            [validatorID],
-            [addressValidator1.address],
-            [suscriptionBlockNumber],
-        ))
-            .to.emit(dappnodeSmoothingPool, 'SuscribeValidator')
-            .withArgs(validatorID, addressValidator1.address, addressValidator1.address);
-
-        const suscription = await dappnodeSmoothingPool.validatorToSuscription(validatorID);
-        expect(await suscription.depositAddress).to.be.equal(addressValidator1.address);
-        expect(await suscription.blockStart).to.be.equal(suscriptionBlockNumber);
-        expect(await suscription.blockEnd).to.be.equal(0);
-        expect(await suscription.poolRecipient).to.be.equal(addressValidator1.address);
-    });
-    it('Should claimRewards and unbann method', async () => {
-        const depositAddress = addressValidator1.address;
-        const poolRecipient = addressValidator1.address;
-        const availableBalance = ethers.utils.parseEther('10');
-        const unbanBalance = 0;
-
         const valuesRewards = [
-            [depositAddress, poolRecipient, availableBalance, unbanBalance],
-            [addressValidator2.address, addressValidator2.address, ethers.utils.parseEther('1'), 0],
+            [deployer.address, ethers.utils.parseEther('1')],
+            [validator2.address, ethers.utils.parseEther('1')],
         ];
-        const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'address', 'uint256', 'uint256'], rewardLeaf));
-        const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true });
+        const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'uint256'], rewardLeaf));
+        const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true, duplicateOdd: true });
 
-        const merkleProofInvalid = rewardsMerkleTree.getHexProof(leafsRewards[1]);
-        const merkleProof = rewardsMerkleTree.getHexProof(leafsRewards[0]);
+        await expect(dappnodeSmoothingPool.connect(deployer).updateRewardsRoot(rewardsMerkleTree.getHexRoot()))
+            .to.be.revertedWith('DappnodeSmoothingPool::onlyOracle: only oracle');
 
-        // Update rewards root
         await expect(dappnodeSmoothingPool.connect(oracle).updateRewardsRoot(rewardsMerkleTree.getHexRoot()))
             .to.emit(dappnodeSmoothingPool, 'UpdateRewardsRoot')
             .withArgs(rewardsMerkleTree.getHexRoot());
         expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(rewardsMerkleTree.getHexRoot());
 
-        // Check claimRewards
-        await expect(dappnodeSmoothingPool.claimRewards(depositAddress, poolRecipient, availableBalance, unbanBalance, merkleProofInvalid))
-            .to.be.revertedWith('DappnodeSmoothingPool::claimRewards Invalid proof');
+        // Check update oracle 
+        expect(await dappnodeSmoothingPool.oracle()).to.be.equal(oracle.address);
 
-        await expect(dappnodeSmoothingPool.claimRewards(depositAddress, poolRecipient, availableBalance, unbanBalance, merkleProof))
-            .to.be.revertedWith('DappnodeSmoothingPool::claimRewards: ETH_TRANSFER_FAILED');
+        await expect(dappnodeSmoothingPool.connect(deployer).updateOracle(deployer.address))
+            .to.be.revertedWith('DappnodeSmoothingPool::onlyOracle: only oracle');
+
+        await expect(dappnodeSmoothingPool.connect(oracle).updateOracle(deployer.address))
+            .to.emit(dappnodeSmoothingPool, 'UpdateOracle')
+            .withArgs(deployer.address);
+        expect(await dappnodeSmoothingPool.oracle()).to.be.equal(deployer.address);
+    });
+
+    it('should check owner methods', async () => {
+        // Check update oracle 
+        expect(await dappnodeSmoothingPool.owner()).to.be.equal(deployer.address);
+        expect(await dappnodeSmoothingPool.suscriptionCollateral()).to.be.equal(suscriptionCollateral);
+
+        const newCollateral = suscriptionCollateral.mul(2);
+        await expect(dappnodeSmoothingPool.connect(oracle).updateCollateral(newCollateral))
+            .to.be.revertedWith('Ownable: caller is not the owner');
+
+        await expect(dappnodeSmoothingPool.connect(deployer).updateCollateral(newCollateral))
+            .to.emit(dappnodeSmoothingPool, 'UpdateSuscriptionCollateral')
+            .withArgs(newCollateral);
+        expect(await dappnodeSmoothingPool.suscriptionCollateral()).to.be.equal(newCollateral);
+    });
+
+    it('Should claimRewards and unbann method', async () => {
+        const availableBalanceValidator1 = ethers.utils.parseEther('10');
+        const availableBalanceValidator2 = ethers.utils.parseEther('1');
+
+        const valuesRewards = [
+            [validator1.address, availableBalanceValidator1],
+            [validator2.address, availableBalanceValidator2],
+        ];
+        const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'uint256'], rewardLeaf));
+        const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true, duplicateOdd: true });
+
+        const merkleProofValidator2 = rewardsMerkleTree.getHexProof(leafsRewards[1]);
+        const merkleProofValidator1 = rewardsMerkleTree.getHexProof(leafsRewards[0]);
+
+        // Update rewards root
+        await expect(dappnodeSmoothingPool.connect(oracle).updateRewardsRoot(rewardsMerkleTree.getHexRoot()))
+            .to.emit(dappnodeSmoothingPool, 'UpdateRewardsRoot')
+            .withArgs(rewardsMerkleTree.getHexRoot());
+
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(rewardsMerkleTree.getHexRoot());
+
+        // Check claimRewards
+        await expect(dappnodeSmoothingPool.claimRewards(validator1.address, availableBalanceValidator1, merkleProofValidator2))
+            .to.be.revertedWith('DappnodeSmoothingPool::claimRewards Invalid merkle proof');
+
+        await expect(dappnodeSmoothingPool.claimRewards(validator1.address, availableBalanceValidator1, merkleProofValidator1))
+            .to.be.revertedWith('DappnodeSmoothingPool::claimRewards: Eth transfer failed');
 
         // Send ether
         await expect(deployer.sendTransaction({
             to: dappnodeSmoothingPool.address,
-            value: availableBalance,
-        })).to.emit(dappnodeSmoothingPool, 'Donation')
-            .withArgs(availableBalance);
+            value: ethers.utils.parseEther('100'),
+        })).to.emit(dappnodeSmoothingPool, 'EtherReceived')
+            .withArgs(deployer.address, ethers.utils.parseEther('100'));
 
-        // Check events
-
-        const balancePoolRecipient = await ethers.provider.getBalance(poolRecipient);
+        // Claim rewards
+        const balancePoolRecipient = await ethers.provider.getBalance(validator1.address);
         await expect(dappnodeSmoothingPool.connect(deployer).claimRewards(
-            depositAddress,
-            poolRecipient,
-            availableBalance,
-            unbanBalance,
-            merkleProof,
+            validator1.address,
+            availableBalanceValidator1,
+            merkleProofValidator1,
         ))
             .to.emit(dappnodeSmoothingPool, 'ClaimRewards')
-            .withArgs(depositAddress, poolRecipient, availableBalance);
+            .withArgs(validator1.address, validator1.address, availableBalanceValidator1);
 
-        const balancePoolRecipientAfter = await ethers.provider.getBalance(poolRecipient);
-        expect(balancePoolRecipient.add(availableBalance)).to.be.equal(balancePoolRecipientAfter)
+        const balancePoolRecipientAfter = await ethers.provider.getBalance(validator1.address);
+        expect(balancePoolRecipient.add(availableBalanceValidator1)).to.be.equal(balancePoolRecipientAfter)
+
+
+        // Validator 2 delegate rewards
+        expect(await dappnodeSmoothingPool.rewardRecipient(validator2.address)).to.be.equal(ethers.constants.AddressZero);
+
+        await expect(dappnodeSmoothingPool.connect(validator2).setRewardRecipient(
+            rewardRecipientValidator2.address
+        ))
+            .to.emit(dappnodeSmoothingPool, 'SetRewardRecipient')
+            .withArgs(validator2.address, rewardRecipientValidator2.address);
+        expect(await dappnodeSmoothingPool.rewardRecipient(validator2.address)).to.be.equal(rewardRecipientValidator2.address);
+
+        // Claim rewards
+        const balancePoolRecipient2 = await ethers.provider.getBalance(rewardRecipientValidator2.address);
+        await expect(dappnodeSmoothingPool.connect(deployer).claimRewards(
+            validator2.address,
+            availableBalanceValidator2,
+            merkleProofValidator2,
+        ))
+            .to.emit(dappnodeSmoothingPool, 'ClaimRewards')
+            .withArgs(validator2.address, rewardRecipientValidator2.address, availableBalanceValidator2);
+
+
+        const balancePoolRecipientAfter2 = await ethers.provider.getBalance(rewardRecipientValidator2.address);
+        expect(balancePoolRecipient2.add(availableBalanceValidator2)).to.be.equal(balancePoolRecipientAfter2)
+
+
+        // Try claim again and no rewards are sent
+        await expect(dappnodeSmoothingPool.connect(deployer).claimRewards(
+            validator2.address,
+            availableBalanceValidator2,
+            merkleProofValidator2,
+        ))
+            .to.emit(dappnodeSmoothingPool, 'ClaimRewards')
+            .withArgs(validator2.address, rewardRecipientValidator2.address, 0);
+
     });
 
     it('Should verify all proofs', async () => {
         const valuesRewards = [
             // depositAddress, poolRecipient, availableBalance, unbanBalance
-            ['0x1000000000000000000000000000000000000000', '0x0100000000000000000000000000000000000000', '10000', '0'],
-            ['0x2000000000000000000000000000000000000000', '0x0200000000000000000000000000000000000000', '20000', '0'],
-            ['0x3000000000000000000000000000000000000000', '0x0300000000000000000000000000000000000000', '30000', '0'],
-            ['0x4000000000000000000000000000000000000000', '0x0400000000000000000000000000000000000000', '40000', '0'],
-            ['0x5000000000000000000000000000000000000000', '0x0500000000000000000000000000000000000000', '50000', '0'],
-            ['0x6000000000000000000000000000000000000000', '0x0600000000000000000000000000000000000000', '60000', '0'],
+            ['0x1000000000000000000000000000000000000000', '10000'],
+            ['0x2000000000000000000000000000000000000000', '20000'],
+            ['0x3000000000000000000000000000000000000000', '30000'],
+            ['0x4000000000000000000000000000000000000000', '40000'],
+            ['0x5000000000000000000000000000000000000000', '50000'],
+            ['0x6000000000000000000000000000000000000000', '60000'],
         ];
-        const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'address', 'uint256', 'uint256'], rewardLeaf));
-        const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true });
+        const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'uint256'], rewardLeaf));
+        const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true, duplicateOdd: true });
 
         // Update rewards root
         await expect(dappnodeSmoothingPool.connect(oracle).updateRewardsRoot(rewardsMerkleTree.getHexRoot()))
@@ -240,13 +228,20 @@ describe('DappnodeSmoothingPool test', () => {
 
         for (let valIndex = 0; valIndex < valuesRewards.length; valIndex++) {
             // Check claimRewards
+            let proof = rewardsMerkleTree.getHexProof(leafsRewards[valIndex]);
+
+            // Lib does not work properly with duplicateOdd TT computing the proofs
+            // I only will fix it for this case, to avoid fixing the js lib
+            if (valIndex == 5 || valIndex == 4) {
+                const layers = rewardsMerkleTree.getHexLayers();
+                // The second layer in this case is odd for the 4 and 5 leafs, so add necessary hash
+                proof = [proof[0], layers[1][2], proof[1]]
+            }
             await expect(dappnodeSmoothingPool.claimRewards(
                 valuesRewards[valIndex][0],
                 valuesRewards[valIndex][1],
-                valuesRewards[valIndex][2],
-                valuesRewards[valIndex][3],
-                rewardsMerkleTree.getHexProof(leafsRewards[valIndex])))
-                .to.be.revertedWith('DappnodeSmoothingPool::claimRewards: ETH_TRANSFER_FAILED');
+                proof))
+                .to.be.revertedWith('DappnodeSmoothingPool::claimRewards: Eth transfer failed');
         }
     });
 });
@@ -261,7 +256,7 @@ describe('DappnodeSmoothingPool test', () => {
  * const rewardsMerkleTree = StandardMerkleTree.of(valuesSuscription, ["address", "address", "uint256", "uint256"]);
  * Load Merkle Trees OZ
  * valuesSuscription = [
- *     [addressValidator1.address, 1],
+ *     [validator1.address, 1],
  *     [addressValidator2.address, 2]
  * ];
  * suscriptionMerkleTree = StandardMerkleTree.of(valuesSuscription, ["address", "uint32"]);

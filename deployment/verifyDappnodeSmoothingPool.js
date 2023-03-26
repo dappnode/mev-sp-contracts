@@ -3,13 +3,7 @@ require('dotenv').config();
 const path = require('path');
 const hre = require('hardhat');
 const { expect } = require('chai');
-// const { ethers } = require('hardhat');
-
-const openzeppelinUpgrade = require(`../.openzeppelin/${process.env.HARDHAT_NETWORK}.json`);
-
-const pathDeployOutputParameters = path.join(__dirname, './deploy_output.json');
-const deployOutputParameters = require(pathDeployOutputParameters);
-
+const deployOutput = require('./deploy_output.json');
 
 async function main() {
     // load deployer account
@@ -17,14 +11,10 @@ async function main() {
         throw new Error('Etherscan API KEY has not been defined');
     }
 
-    // verify upgradable SC (dappnode smoothing pool)
-    for (const implementation in openzeppelinUpgrade.impls) {
-        const { address } = openzeppelinUpgrade.impls[implementation];
-        try {
-            await hre.run('verify:verify', { address });
-        } catch (error) {
-            expect(error.message.toLowerCase().includes('already verified')).to.be.equal(true);
-        }
+    try {
+        await hre.run('verify:verify', { address: deployOutput.dappnodeSmoothingPool });
+    } catch (error) {
+        expect(error.message.toLowerCase().includes('already verified')).to.be.equal(true);
     }
 }
 

@@ -7,50 +7,29 @@ const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 const pathOutputJson = path.join(__dirname, './deploy_output.json');
-
-const deployParameters = require('./deploy_parameters.json');
+//const deployParameters = require('./deploy_parameters.json');
 
 async function main() {
     const atemptsDeployProxy = 20;
     let currentProvider = ethers.provider;
-    if (deployParameters.multiplierGas || deployParameters.maxFeePerGas) {
-        if (process.env.HARDHAT_NETWORK !== 'hardhat') {
-            currentProvider = new ethers.providers.JsonRpcProvider(`https://${process.env.HARDHAT_NETWORK}.infura.io/v3/${process.env.INFURA_PROJECT_ID}`);
-            if (deployParameters.maxPriorityFeePerGas && deployParameters.maxFeePerGas) {
-                console.log(`Hardcoded gas used: MaxPriority${deployParameters.maxPriorityFeePerGas} gwei, MaxFee${deployParameters.maxFeePerGas} gwei`);
-                const FEE_DATA = {
-                    maxFeePerGas: ethers.utils.parseUnits(deployParameters.maxFeePerGas, 'gwei'),
-                    maxPriorityFeePerGas: ethers.utils.parseUnits(deployParameters.maxPriorityFeePerGas, 'gwei'),
-                };
-                currentProvider.getFeeData = async () => FEE_DATA;
-            } else {
-                console.log('Multiplier gas used: ', deployParameters.multiplierGas);
-                async function overrideFeeData() {
-                    const feedata = await ethers.provider.getFeeData();
-                    return {
-                        maxFeePerGas: feedata.maxFeePerGas.mul(deployParameters.multiplierGas),
-                        maxPriorityFeePerGas: feedata.maxPriorityFeePerGas.mul(deployParameters.multiplierGas),
-                    };
-                }
-                currentProvider.getFeeData = overrideFeeData;
-            }
-        }
-    }
 
     let deployer;
-    if (deployParameters.privateKey) {
-        deployer = new ethers.Wallet(deployParameters.privateKey, currentProvider);
+    if (process.env.PVTK_DEPLOYMENT) {
+        deployer = new ethers.Wallet(process.env.PVTK_DEPLOYMENT, currentProvider);
+        console.log("using pvtKey", deployer.address)
     } else {
         deployer = ethers.Wallet.fromMnemonic(process.env.MNEMONIC, 'm/44\'/60\'/0\'/0/0').connect(currentProvider);
+        console.log("using Mnemonic", deployer.address)
     }
 
-    const { suscriptionMerkleTree } = deployParameters;
-    const oracleAddress = deployParameters.oracleAddress || deployer.address;
+    // Deploy parameters
+    const oracleAddress = deployer.address;
+    const suscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther("0.01"));
+    // owner/governance???
 
     /*
      * Deploy dappnode smoothing pool
      */
-
     const dappnodeSmoothingPoolFactory = await ethers.getContractFactory('DappnodeSmoothingPool');
     let dappnodeSmoothingPool;
     for (let i = 0; i < atemptsDeployProxy; i++) {
@@ -58,8 +37,8 @@ async function main() {
             dappnodeSmoothingPool = await upgrades.deployProxy(
                 dappnodeSmoothingPoolFactory,
                 [
-                    suscriptionMerkleTree,
                     oracleAddress,
+                    suscriptionCollateral,
                 ],
             );
             break;
@@ -73,7 +52,6 @@ async function main() {
     console.log('##### Deployment dappnodeSmoothingPool #####');
     console.log('#######################');
     console.log('deployer:', deployer.address);
-    console.log('suscriptionMerkleTree:', suscriptionMerkleTree);
     console.log('oracleAddress:', oracleAddress);
 
     console.log('#######################\n');
@@ -82,7 +60,7 @@ async function main() {
     console.log('\n#######################');
     console.log('#####    Checks    #####');
     console.log('#######################');
-    console.log('suscriptionMerkleTree:', await dappnodeSmoothingPool.suscriptionsRoot());
+    console.log('suscriptionCollateral:', await dappnodeSmoothingPool.suscriptionCollateral());
     console.log('oracleAddress:', await dappnodeSmoothingPool.oracle());
 
     const outputJson = {

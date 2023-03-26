@@ -33,8 +33,8 @@
     "docgen": "npx solidity-docgen --solc-module solc-0.8 -t ./docs/templates",
     "lint": "npx eslint ./test && npx eslint ./deployment",
     "lint:fix": "npx eslint ./test --fix && npx eslint ./deployment --fix",
-    "deploy:PoE2_0:hardhat": "npx hardhat run deployment/deployDappnodeSmoothingPool.js --network hardhat",
-    "deploy:PoE2_0:goerli": "npx hardhat run deployment/deployDappnodeSmoothingPool.js --network goerli",
-    "verify:PoE2_0:goerli": "npx hardhat run deployment/verifyDappnodeSmoothingPool.js --network goerli"
+    "deploy:hardhat": "npx hardhat run deployment/deployDappnodeSmoothingPool.js --network hardhat",
+    "deploy:goerli": "npx hardhat run deployment/deployDappnodeSmoothingPool.js --network goerli",
+    "verify:goerli": "npx hardhat run deployment/verifyDappnodeSmoothingPool.js --network goerli"
   }
 }
