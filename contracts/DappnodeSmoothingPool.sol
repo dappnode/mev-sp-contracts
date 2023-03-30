@@ -75,10 +75,10 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
      * @param _oracle Oracle address
      * @param _suscriptionCollateral Suscription collateral
      */
-    function initialize(address _oracle, uint256 _suscriptionCollateral)
-        public
-        initializer
-    {
+    function initialize(
+        address _oracle,
+        uint256 _suscriptionCollateral
+    ) public initializer {
         oracle = _oracle;
         suscriptionCollateral = _suscriptionCollateral;
         __Ownable_init();
@@ -145,6 +145,9 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
         uint256 claimableBalance = accumulatedBalance -
             claimedBalance[depositAddress];
 
+        // Update claimed balance mapping
+        claimedBalance[depositAddress] = accumulatedBalance;
+
         // Load first the reward recipient for gas saving, to avoid load twice from storage
         address currentRewardRecipient = rewardRecipient[depositAddress];
         address rewardAddress = currentRewardRecipient == address(0)
@@ -159,9 +162,6 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
             success,
             "DappnodeSmoothingPool::claimRewards: Eth transfer failed"
         );
-
-        // Update claimed balance mapping
-        claimedBalance[depositAddress] += claimableBalance;
 
         emit ClaimRewards(depositAddress, rewardAddress, claimableBalance);
     }
@@ -190,10 +190,9 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
      * Only the owner/governance can call this function
      * @param newSuscriptionCollateral new suscription collateral
      */
-    function updateCollateral(uint256 newSuscriptionCollateral)
-        public
-        onlyOwner
-    {
+    function updateCollateral(
+        uint256 newSuscriptionCollateral
+    ) public onlyOwner {
         suscriptionCollateral = newSuscriptionCollateral;
         emit UpdateSuscriptionCollateral(newSuscriptionCollateral);
     }

@@ -1,0 +1,12 @@
+{
+    "timelockMinDelay":0,
+    "upgrades": [
+        {
+            "address": "",
+            "contractName": "DappnodeSmoothingPool"
+        }
+    ],
+    "multiplierGas": 0,
+    "deployerPvtKey": "",
+    "timelockSalt": ""
+}

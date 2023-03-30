@@ -35,6 +35,7 @@
     "lint:fix": "npx eslint ./test --fix && npx eslint ./deployment --fix",
     "deploy:hardhat": "npx hardhat run deployment/deployDappnodeSmoothingPool.js --network hardhat",
     "deploy:goerli": "npx hardhat run deployment/deployDappnodeSmoothingPool.js --network goerli",
-    "verify:goerli": "npx hardhat run deployment/verifyDappnodeSmoothingPool.js --network goerli"
+    "verify:goerli": "npx hardhat run deployment/verifyDappnodeSmoothingPool.js --network goerli",
+    "upgrade:goerli": "npx hardhat run upgrade/simpleUpgrade.js --network goerli"
   }
 }
