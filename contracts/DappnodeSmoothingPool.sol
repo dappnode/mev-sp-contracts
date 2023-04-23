@@ -13,14 +13,14 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     uint256 public suscriptionCollateral;
 
     // Rewards merkle root, aggregate together all the validatorIDs with the same deposit address
-    // Leaf:keccak256(abi.encodePacked(depositAddress, availableBalance)
+    // Leaf:keccak256(abi.encodePacked(withdrawalAddress, availableBalance)
     bytes32 public rewardsRoot;
 
-    // depositAddress --> claimedBalance
+    // withdrawalAddress --> claimedBalance
     mapping(address => uint256) public claimedBalance;
 
     // Allow a deposit address to delegate his rewards to another address
-    // depositAddress --> rewardAddress
+    // withdrawalAddress --> rewardAddress
     mapping(address => address) public rewardRecipient;
 
     // Oracle address, will be responsible to upgrade the rewardsRoot
@@ -33,28 +33,32 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     event EtherReceived(address sender, uint256 donationAmount);
 
     /**
-     * @dev Emitted when a new users suscribes
+     * @dev Emitted when a new users subscribes
      */
-    event SuscribeValidator(uint256 suscriptionCollateral, uint32 validatorID);
+    event SubscribeValidator(
+        address sender,
+        uint256 suscriptionCollateral,
+        uint64 validatorID
+    );
 
     /**
      * @dev Emitted when a user claim his rewards
      */
     event ClaimRewards(
-        address depositAddress,
+        address withdrawalAddress,
         address rewardAddress,
         uint256 claimableBalance
     );
 
     /**
-     * @dev Emitted when a new address suscribes
+     * @dev Emitted when a new address subscribes
      */
-    event SetRewardRecipient(address depositAddress, address poolRecipient);
+    event SetRewardRecipient(address withdrawalAddress, address poolRecipient);
 
     /**
-     * @dev Emitted when a validator unsuscribes
+     * @dev Emitted when a validator unsubscribes
      */
-    event UnsuscribeValidator(address sender, uint32 validatorID);
+    event UnsubscribeValidator(address sender, uint64 validatorID);
 
     /**
      * @dev Emitted when the suscription collateral is udpated
@@ -104,36 +108,36 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     }
 
     /**
-     * @notice Suscribe a validator ID to the smoothing pool
+     * @notice Subscribe a validator ID to the smoothing pool
      * @param validatorID Validator ID
      */
-    function suscribeValidator(uint32 validatorID) public payable {
+    function subscribeValidator(uint64 validatorID) public payable {
         // nullifeir suscription
 
         // Check collateral
         require(
             msg.value == suscriptionCollateral,
-            "DappnodeSmoothingPool::suscribeValidator: msg.value does not equal suscription collateral"
+            "DappnodeSmoothingPool::subscribeValidator: msg.value does not equal suscription collateral"
         );
 
-        emit SuscribeValidator(suscriptionCollateral, validatorID);
+        emit SubscribeValidator(msg.sender, suscriptionCollateral, validatorID);
     }
 
     /**
      * @notice Claim available rewards
      * All the rewards that has the same deposit address and pool recipient are aggregated in the same leaf
-     * @param depositAddress Deposit address
+     * @param withdrawalAddress Deposit address
      * @param accumulatedBalance Total available balance to claim
      * @param merkleProof Merkle proof against rewardsRoot
      */
     function claimRewards(
-        address depositAddress,
+        address withdrawalAddress,
         uint256 accumulatedBalance,
         bytes32[] memory merkleProof
     ) public {
         // Verify the merkle proof
         bytes32 node = keccak256(
-            abi.encodePacked(depositAddress, accumulatedBalance)
+            abi.encodePacked(withdrawalAddress, accumulatedBalance)
         );
 
         require(
@@ -143,15 +147,15 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
 
         // Get claimable ether
         uint256 claimableBalance = accumulatedBalance -
-            claimedBalance[depositAddress];
+            claimedBalance[withdrawalAddress];
 
         // Update claimed balance mapping
-        claimedBalance[depositAddress] = accumulatedBalance;
+        claimedBalance[withdrawalAddress] = accumulatedBalance;
 
         // Load first the reward recipient for gas saving, to avoid load twice from storage
-        address currentRewardRecipient = rewardRecipient[depositAddress];
+        address currentRewardRecipient = rewardRecipient[withdrawalAddress];
         address rewardAddress = currentRewardRecipient == address(0)
-            ? depositAddress
+            ? withdrawalAddress
             : currentRewardRecipient;
 
         // Send ether
@@ -163,7 +167,7 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
             "DappnodeSmoothingPool::claimRewards: Eth transfer failed"
         );
 
-        emit ClaimRewards(depositAddress, rewardAddress, claimableBalance);
+        emit ClaimRewards(withdrawalAddress, rewardAddress, claimableBalance);
     }
 
     /**
@@ -176,17 +180,17 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     }
 
     /**
-     * @notice Unsuscribe a validator ID from smoothing pool
+     * @notice Unsubscribe a validator ID from smoothing pool
      * This call will only take effect in the oracle
      * if the msg.sender is the deposit address of that validator
      * @param validatorID Validator ID
      */
-    function unsuscribeValidator(uint32 validatorID) public {
-        emit UnsuscribeValidator(msg.sender, validatorID);
+    function unsubscribeValidator(uint64 validatorID) public {
+        emit UnsubscribeValidator(msg.sender, validatorID);
     }
 
     /**
-     * @notice Update the collateral needed to suscribe a validator
+     * @notice Update the collateral needed to subscribe a validator
      * Only the owner/governance can call this function
      * @param newSuscriptionCollateral new suscription collateral
      */

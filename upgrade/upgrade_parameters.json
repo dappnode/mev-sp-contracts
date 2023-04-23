@@ -2,7 +2,7 @@
     "timelockMinDelay":0,
     "upgrades": [
         {
-            "address": "0x2Df7254059F6a3ddCd1AF0Cb17797B26b6825E89",
+            "address": "0x553BD5a94bcC09FFab6550274d5db140a95AE9bC",
             "contractName": "DappnodeSmoothingPool"
         }
     ],

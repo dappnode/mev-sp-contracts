@@ -53,25 +53,25 @@ describe('DappnodeSmoothingPool test', () => {
     it('Should suscribe validator and unsuscribe', async () => {
         const validatorID = 1;
 
-        // Check suscribeValidator
-        await expect(dappnodeSmoothingPool.suscribeValidator(validatorID))
-            .to.be.revertedWith('DappnodeSmoothingPool::suscribeValidator: msg.value does not equal suscription collateral');
+        // Check subscribeValidator
+        await expect(dappnodeSmoothingPool.subscribeValidator(validatorID))
+            .to.be.revertedWith('DappnodeSmoothingPool::subscribeValidator: msg.value does not equal suscription collateral');
 
-        await expect(dappnodeSmoothingPool.suscribeValidator(validatorID, { value: suscriptionCollateral.add(1) }))
-            .to.be.revertedWith('DappnodeSmoothingPool::suscribeValidator: msg.value does not equal suscription collateral');
+        await expect(dappnodeSmoothingPool.subscribeValidator(validatorID, { value: suscriptionCollateral.add(1) }))
+            .to.be.revertedWith('DappnodeSmoothingPool::subscribeValidator: msg.value does not equal suscription collateral');
 
         const initialSmoothingPoolEther = await ethers.provider.getBalance(dappnodeSmoothingPool.address);
 
-        await expect(dappnodeSmoothingPool.suscribeValidator(validatorID, { value: suscriptionCollateral }))
-            .to.emit(dappnodeSmoothingPool, 'SuscribeValidator')
-            .withArgs(suscriptionCollateral, validatorID);
+        await expect(dappnodeSmoothingPool.subscribeValidator(validatorID, { value: suscriptionCollateral }))
+            .to.emit(dappnodeSmoothingPool, 'SubscribeValidator')
+            .withArgs(deployer.address, suscriptionCollateral, validatorID);
 
         expect(await ethers.provider.getBalance(dappnodeSmoothingPool.address))
             .to.be.equal(initialSmoothingPoolEther.add(suscriptionCollateral))
 
 
-        await expect(dappnodeSmoothingPool.unsuscribeValidator(validatorID))
-            .to.emit(dappnodeSmoothingPool, 'UnsuscribeValidator')
+        await expect(dappnodeSmoothingPool.unsubscribeValidator(validatorID))
+            .to.emit(dappnodeSmoothingPool, 'UnsubscribeValidator')
             .withArgs(deployer.address, validatorID);
     });
 
