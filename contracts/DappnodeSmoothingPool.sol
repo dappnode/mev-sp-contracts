@@ -12,14 +12,14 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     // Suscription collateral
     uint256 public suscriptionCollateral;
 
-    // Rewards merkle root, aggregate together all the validatorIDs with the same deposit address
+    // Rewards merkle root, aggregate together all the validatorIDs with the same withdrawal address
     // Leaf:keccak256(abi.encodePacked(withdrawalAddress, availableBalance)
     bytes32 public rewardsRoot;
 
     // withdrawalAddress --> claimedBalance
     mapping(address => uint256) public claimedBalance;
 
-    // Allow a deposit address to delegate his rewards to another address
+    // Allow a withdrawal address to delegate his rewards to another address
     // withdrawalAddress --> rewardAddress
     mapping(address => address) public rewardRecipient;
 
@@ -125,8 +125,8 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
 
     /**
      * @notice Claim available rewards
-     * All the rewards that has the same deposit address and pool recipient are aggregated in the same leaf
-     * @param withdrawalAddress Deposit address
+     * All the rewards that has the same withdrawal address and pool recipient are aggregated in the same leaf
+     * @param withdrawalAddress Withdrawal address
      * @param accumulatedBalance Total available balance to claim
      * @param merkleProof Merkle proof against rewardsRoot
      */
@@ -171,7 +171,7 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     }
 
     /**
-     * @notice Allow a deposit address to set a reward recipient
+     * @notice Allow a withdrawal address to set a reward recipient
      * @param rewardAddress Reward recipient
      */
     function setRewardRecipient(address rewardAddress) public {
@@ -182,7 +182,7 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     /**
      * @notice Unsubscribe a validator ID from smoothing pool
      * This call will only take effect in the oracle
-     * if the msg.sender is the deposit address of that validator
+     * if the msg.sender is the withdrawal address of that validator
      * @param validatorID Validator ID
      */
     function unsubscribeValidator(uint64 validatorID) public {
