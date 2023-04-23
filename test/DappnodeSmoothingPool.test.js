@@ -12,7 +12,7 @@ describe('DappnodeSmoothingPool test', () => {
 
     let dappnodeSmoothingPool;
 
-    const suscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther("0.01"));
+    const subscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther("0.01"));
 
     beforeEach('Deploy contract', async () => {
         // Load signers
@@ -24,7 +24,7 @@ describe('DappnodeSmoothingPool test', () => {
             dappnodeSmoothingPoolFactory,
             [
                 oracle.address,
-                suscriptionCollateral
+                subscriptionCollateral
             ],
         );
         await dappnodeSmoothingPool.deployed();
@@ -32,7 +32,7 @@ describe('DappnodeSmoothingPool test', () => {
 
     it('should check the initialize', async () => {
         expect(await dappnodeSmoothingPool.oracle()).to.be.equal(oracle.address);
-        expect(await dappnodeSmoothingPool.suscriptionCollateral()).to.be.equal(suscriptionCollateral);
+        expect(await dappnodeSmoothingPool.subscriptionCollateral()).to.be.equal(subscriptionCollateral);
     });
 
     it('should check the initialize', async () => {
@@ -50,24 +50,24 @@ describe('DappnodeSmoothingPool test', () => {
     });
 
 
-    it('Should suscribe validator and unsuscribe', async () => {
+    it('Should sunscribe validator and unsubscribe', async () => {
         const validatorID = 1;
 
         // Check subscribeValidator
         await expect(dappnodeSmoothingPool.subscribeValidator(validatorID))
-            .to.be.revertedWith('DappnodeSmoothingPool::subscribeValidator: msg.value does not equal suscription collateral');
+            .to.be.revertedWith('DappnodeSmoothingPool::subscribeValidator: msg.value does not equal subscription collateral');
 
-        await expect(dappnodeSmoothingPool.subscribeValidator(validatorID, { value: suscriptionCollateral.add(1) }))
-            .to.be.revertedWith('DappnodeSmoothingPool::subscribeValidator: msg.value does not equal suscription collateral');
+        await expect(dappnodeSmoothingPool.subscribeValidator(validatorID, { value: subscriptionCollateral.add(1) }))
+            .to.be.revertedWith('DappnodeSmoothingPool::subscribeValidator: msg.value does not equal subscription collateral');
 
         const initialSmoothingPoolEther = await ethers.provider.getBalance(dappnodeSmoothingPool.address);
 
-        await expect(dappnodeSmoothingPool.subscribeValidator(validatorID, { value: suscriptionCollateral }))
+        await expect(dappnodeSmoothingPool.subscribeValidator(validatorID, { value: subscriptionCollateral }))
             .to.emit(dappnodeSmoothingPool, 'SubscribeValidator')
-            .withArgs(deployer.address, suscriptionCollateral, validatorID);
+            .withArgs(deployer.address, subscriptionCollateral, validatorID);
 
         expect(await ethers.provider.getBalance(dappnodeSmoothingPool.address))
-            .to.be.equal(initialSmoothingPoolEther.add(suscriptionCollateral))
+            .to.be.equal(initialSmoothingPoolEther.add(subscriptionCollateral))
 
 
         await expect(dappnodeSmoothingPool.unsubscribeValidator(validatorID))
@@ -110,16 +110,16 @@ describe('DappnodeSmoothingPool test', () => {
     it('should check owner methods', async () => {
         // Check update oracle 
         expect(await dappnodeSmoothingPool.owner()).to.be.equal(deployer.address);
-        expect(await dappnodeSmoothingPool.suscriptionCollateral()).to.be.equal(suscriptionCollateral);
+        expect(await dappnodeSmoothingPool.subscriptionCollateral()).to.be.equal(subscriptionCollateral);
 
-        const newCollateral = suscriptionCollateral.mul(2);
+        const newCollateral = subscriptionCollateral.mul(2);
         await expect(dappnodeSmoothingPool.connect(oracle).updateCollateral(newCollateral))
             .to.be.revertedWith('Ownable: caller is not the owner');
 
         await expect(dappnodeSmoothingPool.connect(deployer).updateCollateral(newCollateral))
-            .to.emit(dappnodeSmoothingPool, 'UpdateSuscriptionCollateral')
+            .to.emit(dappnodeSmoothingPool, 'UpdateSubscriptionCollateral')
             .withArgs(newCollateral);
-        expect(await dappnodeSmoothingPool.suscriptionCollateral()).to.be.equal(newCollateral);
+        expect(await dappnodeSmoothingPool.subscriptionCollateral()).to.be.equal(newCollateral);
     });
 
     it('Should claimRewards and unbann method', async () => {
@@ -253,11 +253,11 @@ describe('DappnodeSmoothingPool test', () => {
  *     ["0x1111111111111111111111111111111111111111", "5000000000000000000"],
  *     ["0x2222222222222222222222222222222222222222", "2500000000000000000"]
  * ];
- * const rewardsMerkleTree = StandardMerkleTree.of(valuesSuscription, ["address", "address", "uint256", "uint256"]);
+ * const rewardsMerkleTree = StandardMerkleTree.of(valuessubscription, ["address", "address", "uint256", "uint256"]);
  * Load Merkle Trees OZ
- * valuesSuscription = [
+ * valuessubscription = [
  *     [validator1.address, 1],
  *     [addressValidator2.address, 2]
  * ];
- * suscriptionMerkleTree = StandardMerkleTree.of(valuesSuscription, ["address", "uint32"]);
+ * subscriptionMerkleTree = StandardMerkleTree.of(valuessubscription, ["address", "uint32"]);
  */

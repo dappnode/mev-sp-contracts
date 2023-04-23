@@ -24,7 +24,7 @@ async function main() {
 
     // Deploy parameters
     const oracleAddress = deployer.address;
-    const suscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther("0.01"));
+    const subscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther("0.01"));
     // owner/governance???
 
     /*
@@ -38,7 +38,7 @@ async function main() {
                 dappnodeSmoothingPoolFactory,
                 [
                     oracleAddress,
-                    suscriptionCollateral,
+                    subscriptionCollateral,
                 ],
             );
             break;
@@ -60,7 +60,7 @@ async function main() {
     console.log('\n#######################');
     console.log('#####    Checks    #####');
     console.log('#######################');
-    console.log('suscriptionCollateral:', await dappnodeSmoothingPool.suscriptionCollateral());
+    console.log('subscriptionCollateral:', await dappnodeSmoothingPool.subscriptionCollateral());
     console.log('oracleAddress:', await dappnodeSmoothingPool.oracle());
 
     const outputJson = {

@@ -6,11 +6,11 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
- * Contract responsible to manage the suscriptions and rewards of the dappnode smoothing pool
+ * Contract responsible to manage the subscriptions and rewards of the dappnode smoothing pool
  */
 contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
-    // Suscription collateral
-    uint256 public suscriptionCollateral;
+    // Subscription collateral
+    uint256 public subscriptionCollateral;
 
     // Rewards merkle root, aggregate together all the validatorIDs with the same withdrawal address
     // Leaf:keccak256(abi.encodePacked(withdrawalAddress, availableBalance)
@@ -37,7 +37,7 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
      */
     event SubscribeValidator(
         address sender,
-        uint256 suscriptionCollateral,
+        uint256 subscriptionCollateral,
         uint64 validatorID
     );
 
@@ -61,9 +61,9 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     event UnsubscribeValidator(address sender, uint64 validatorID);
 
     /**
-     * @dev Emitted when the suscription collateral is udpated
+     * @dev Emitted when the subscription collateral is udpated
      */
-    event UpdateSuscriptionCollateral(uint256 newSuscriptionCollateral);
+    event UpdateSubscriptionCollateral(uint256 newSubscriptionCollateral);
 
     /**
      * @dev Emitted when the rewards root is updated
@@ -77,14 +77,14 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
 
     /**
      * @param _oracle Oracle address
-     * @param _suscriptionCollateral Suscription collateral
+     * @param _subscriptionCollateral Subscription collateral
      */
     function initialize(
         address _oracle,
-        uint256 _suscriptionCollateral
+        uint256 _subscriptionCollateral
     ) public initializer {
         oracle = _oracle;
-        suscriptionCollateral = _suscriptionCollateral;
+        subscriptionCollateral = _subscriptionCollateral;
         __Ownable_init();
     }
 
@@ -112,15 +112,19 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
      * @param validatorID Validator ID
      */
     function subscribeValidator(uint64 validatorID) public payable {
-        // nullifeir suscription
+        // nullifeir subscription
 
         // Check collateral
         require(
-            msg.value == suscriptionCollateral,
-            "DappnodeSmoothingPool::subscribeValidator: msg.value does not equal suscription collateral"
+            msg.value == subscriptionCollateral,
+            "DappnodeSmoothingPool::subscribeValidator: msg.value does not equal subscription collateral"
         );
 
-        emit SubscribeValidator(msg.sender, suscriptionCollateral, validatorID);
+        emit SubscribeValidator(
+            msg.sender,
+            subscriptionCollateral,
+            validatorID
+        );
     }
 
     /**
@@ -192,13 +196,13 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     /**
      * @notice Update the collateral needed to subscribe a validator
      * Only the owner/governance can call this function
-     * @param newSuscriptionCollateral new suscription collateral
+     * @param newSubscriptionCollateral new subscription collateral
      */
     function updateCollateral(
-        uint256 newSuscriptionCollateral
+        uint256 newSubscriptionCollateral
     ) public onlyOwner {
-        suscriptionCollateral = newSuscriptionCollateral;
-        emit UpdateSuscriptionCollateral(newSuscriptionCollateral);
+        subscriptionCollateral = newSubscriptionCollateral;
+        emit UpdateSubscriptionCollateral(newSubscriptionCollateral);
     }
 
     ////////////////////
