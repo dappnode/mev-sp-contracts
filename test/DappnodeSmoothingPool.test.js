@@ -16,7 +16,7 @@ describe('DappnodeSmoothingPool test', () => {
 
     const subscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther('0.01'));
     const poolFee = 1000;
-    const checkPointSlotSize = 7200;
+    const checkpointSlotSize = 7200;
 
     beforeEach('Deploy contract', async () => {
         // Load signers
@@ -31,7 +31,7 @@ describe('DappnodeSmoothingPool test', () => {
                 subscriptionCollateral,
                 poolFee,
                 deployer.address, // pool fee recipient
-                checkPointSlotSize,
+                checkpointSlotSize,
             ],
         );
         await dappnodeSmoothingPool.deployed();
@@ -40,6 +40,12 @@ describe('DappnodeSmoothingPool test', () => {
     it('should check the initialize', async () => {
         expect(await dappnodeSmoothingPool.oracle()).to.be.equal(oracle.address);
         expect(await dappnodeSmoothingPool.subscriptionCollateral()).to.be.equal(subscriptionCollateral);
+        expect(await dappnodeSmoothingPool.subscriptionCollateral()).to.be.equal(subscriptionCollateral);
+        expect(await dappnodeSmoothingPool.poolFee()).to.be.equal(poolFee);
+        expect(await dappnodeSmoothingPool.poolFeeRecipient()).to.be.equal(deployer.address);
+        expect(await dappnodeSmoothingPool.checkpointSlotSize()).to.be.equal(checkpointSlotSize);
+        expect(await dappnodeSmoothingPool.deploymentBlockNumber()).to.be.equal((await dappnodeSmoothingPool.deployTransaction.wait()).blockNumber);
+
     });
 
     it('should check the initialize', async () => {
@@ -52,13 +58,13 @@ describe('DappnodeSmoothingPool test', () => {
             subscriptionCollateral,
             poolFee,
             deployer.address, // pool fee recipient
-            checkPointSlotSize,
+            checkpointSlotSize,
         )).to.emit(smoothingTestContractInit, 'UpdatePoolFee')
             .withArgs(poolFee)
             .to.emit(smoothingTestContractInit, 'UpdatePoolFeeRecipient')
             .withArgs(deployer.address)
             .to.emit(smoothingTestContractInit, 'UpdateCheckpointSlotSize')
-            .withArgs(checkPointSlotSize);
+            .withArgs(checkpointSlotSize);
     });
 
     it('should check the fallback function', async () => {
@@ -145,8 +151,41 @@ describe('DappnodeSmoothingPool test', () => {
             .to.emit(dappnodeSmoothingPool, 'UpdateSubscriptionCollateral')
             .withArgs(newCollateral);
         expect(await dappnodeSmoothingPool.subscriptionCollateral()).to.be.equal(newCollateral);
-    });
 
+        // Update fee
+        const newPoolFee = poolFee * 2;
+        await expect(dappnodeSmoothingPool.connect(oracle).updatePoolFee(newPoolFee))
+            .to.be.revertedWith('Ownable: caller is not the owner');
+
+        await expect(dappnodeSmoothingPool.connect(deployer).updatePoolFee(10001))
+            .to.be.revertedWith('Pool fee cannot be greater than 100%');
+
+        await expect(dappnodeSmoothingPool.connect(deployer).updatePoolFee(newPoolFee))
+            .to.emit(dappnodeSmoothingPool, 'UpdatePoolFee')
+            .withArgs(newPoolFee);
+        expect(await dappnodeSmoothingPool.poolFee()).to.be.equal(newPoolFee);
+
+        // Update PoolFeeRecipient
+        const poolFeeRecipient = donator.address;
+        await expect(dappnodeSmoothingPool.connect(oracle).updatePoolFeeRecipient(poolFeeRecipient))
+            .to.be.revertedWith('Ownable: caller is not the owner');
+
+        await expect(dappnodeSmoothingPool.connect(deployer).updatePoolFeeRecipient(poolFeeRecipient))
+            .to.emit(dappnodeSmoothingPool, 'UpdatePoolFeeRecipient')
+            .withArgs(poolFeeRecipient);
+        expect(await dappnodeSmoothingPool.poolFeeRecipient()).to.be.equal(poolFeeRecipient);
+
+
+        // Update Checkpoint slot size
+        const newCheckpointSlotSize = checkpointSlotSize + 100;
+        await expect(dappnodeSmoothingPool.connect(oracle).updateCheckpointSlotSize(newCheckpointSlotSize))
+            .to.be.revertedWith('Ownable: caller is not the owner');
+
+        await expect(dappnodeSmoothingPool.connect(deployer).updateCheckpointSlotSize(newCheckpointSlotSize))
+            .to.emit(dappnodeSmoothingPool, 'UpdateCheckpointSlotSize')
+            .withArgs(newCheckpointSlotSize);
+        expect(await dappnodeSmoothingPool.checkpointSlotSize()).to.be.equal(newCheckpointSlotSize);
+    });
     it('Should claimRewards and unbann method', async () => {
         const availableBalanceValidator1 = ethers.utils.parseEther('10');
         const availableBalanceValidator2 = ethers.utils.parseEther('1');
