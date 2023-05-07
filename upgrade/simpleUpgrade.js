@@ -57,7 +57,9 @@ async function main() {
             console.log(`npx hardhat verify --constructor-args upgrade/arguments.js ${txUpgrade.address} --network ${process.env.HARDHAT_NETWORK}\n`);
             console.log("Copy the following constructor arguments on: upgrade/arguments.js \n", upgrade.constructorArgs)
         } else {
-            const txUpgrade = await upgrades.upgradeProxy(proxyAddress, contractFactory)
+            const txUpgrade = await upgrades.upgradeProxy(proxyAddress, contractFactory, {
+                unsafeAllowRenames: false
+            })
 
             console.log(txUpgrade.address);
             console.log("you can verify the new impl address with:")

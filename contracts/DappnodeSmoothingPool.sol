@@ -27,6 +27,20 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     // TODO will be update to a quorum N/M
     address public oracle;
 
+    // The above parameters are used to synch information on the oracle
+
+    // Smoothing pool fee expressed in % with 2 decimals
+    uint256 public poolFee;
+
+    // Smoothing pool fee recipient
+    address public poolFeeRecipient;
+
+    // Indicates how many slots must be between checkpoints
+    uint256 public checkpointSlotSize;
+
+    // Indicates the deployment block number
+    uint256 public deploymentBlockNumber;
+
     /**
      * @dev Emitted when the contract receives ether
      */
@@ -61,6 +75,21 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     event UnsubscribeValidator(address sender, uint64 validatorID);
 
     /**
+     * @dev Emitted when the pool fee is updated
+     */
+    event UpdatePoolFee(uint256 newPoolFee);
+
+    /**
+     * @dev Emitted when the pool fee recipient is updated
+     */
+    event UpdatePoolFeeRecipient(address newPoolFeeRecipient);
+
+    /**
+     * @dev Emitted when the checkpoint slot size is updated
+     */
+    event UpdateCheckpointSlotSize(uint256 newCheckpointSlotSize);
+
+    /**
      * @dev Emitted when the subscription collateral is udpated
      */
     event UpdateSubscriptionCollateral(uint256 newSubscriptionCollateral);
@@ -68,7 +97,7 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     /**
      * @dev Emitted when the rewards root is updated
      */
-    event UpdateRewardsRoot(bytes32 newRewardsRoot);
+    event UpdateRewardsRoot(uint256 slotNumber, bytes32 newRewardsRoot);
 
     /**
      * @dev Emitted when the rewards root is updated
@@ -78,14 +107,30 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     /**
      * @param _oracle Oracle address
      * @param _subscriptionCollateral Subscription collateral
+     * @param _poolFee Pool Fee
+     * @param _poolFeeRecipient Pool fee recipient
+     * @param _checkpointSlotSize Checkpoint slot size
      */
     function initialize(
         address _oracle,
-        uint256 _subscriptionCollateral
+        uint256 _subscriptionCollateral,
+        uint256 _poolFee,
+        address _poolFeeRecipient,
+        uint256 _checkpointSlotSize
     ) public initializer {
         oracle = _oracle;
         subscriptionCollateral = _subscriptionCollateral;
+
+        poolFee = _poolFee;
+        poolFeeRecipient = _poolFeeRecipient;
+        checkpointSlotSize = _checkpointSlotSize;
+        deploymentBlockNumber = block.number;
+
         __Ownable_init();
+
+        emit UpdatePoolFee(_poolFee);
+        emit UpdatePoolFeeRecipient(_poolFeeRecipient);
+        emit UpdateCheckpointSlotSize(_checkpointSlotSize);
     }
 
     /**
@@ -193,6 +238,45 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
         emit UnsubscribeValidator(msg.sender, validatorID);
     }
 
+    ////////////////////
+    // Owner functions
+    ///////////////////
+
+    /**
+     * @notice Update pool fee
+     * Only the owner/governance can call this function
+     * @param newPoolFee new pool fee
+     */
+    function updatePoolFee(uint256 newPoolFee) public onlyOwner {
+        require(newPoolFee <= 10000, "Pool fee cannot be greater than 100%");
+        poolFee = newPoolFee;
+        emit UpdatePoolFee(newPoolFee);
+    }
+
+    /**
+     * @notice Update the pool fee recipient
+     * Only the owner/governance can call this function
+     * @param newPoolFeeRecipient new pool fee recipient
+     */
+    function updatePoolFeeRecipient(
+        address newPoolFeeRecipient
+    ) public onlyOwner {
+        poolFeeRecipient = newPoolFeeRecipient;
+        emit UpdatePoolFeeRecipient(newPoolFeeRecipient);
+    }
+
+    /**
+     * @notice Update the checkpoint slot size
+     * Only the owner/governance can call this function
+     * @param newCheckpointSlotSize new checkpoint slot size
+     */
+    function updateCheckpointSlotSize(
+        uint256 newCheckpointSlotSize
+    ) public onlyOwner {
+        checkpointSlotSize = newCheckpointSlotSize;
+        emit UpdateCheckpointSlotSize(newCheckpointSlotSize);
+    }
+
     /**
      * @notice Update the collateral needed to subscribe a validator
      * Only the owner/governance can call this function
@@ -210,12 +294,16 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     ///////////////////
 
     /**
-     * @notice Update rewards root
+     * @notice Update rewards root for a slot number
+     * @param slotNumber Slot number
      * @param newRewardsRoot New rewards root
      */
-    function updateRewardsRoot(bytes32 newRewardsRoot) public onlyOracle {
+    function updateRewardsRoot(
+        uint256 slotNumber,
+        bytes32 newRewardsRoot
+    ) public onlyOracle {
         rewardsRoot = newRewardsRoot;
-        emit UpdateRewardsRoot(newRewardsRoot);
+        emit UpdateRewardsRoot(slotNumber, newRewardsRoot);
     }
 
     /**

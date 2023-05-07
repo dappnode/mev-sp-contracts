@@ -1,6 +1,5 @@
 /* eslint-disable import/no-dynamic-require, no-await-in-loop, no-restricted-syntax, guard-for-in */
 require('dotenv').config();
-const path = require('path');
 const hre = require('hardhat');
 const { expect } = require('chai');
 const deployOutput = require('./deploy_output.json');
