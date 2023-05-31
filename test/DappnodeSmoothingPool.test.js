@@ -238,7 +238,6 @@ describe('DappnodeSmoothingPool test', () => {
         await expect(dappnodeSmoothingPool.connect(governance).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
             .to.be.revertedWith('DappnodeSmoothingPool::submitReport: Not a oracle member');
 
-        // TODO test both events
         await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
             .to.emit(dappnodeSmoothingPool, 'SubmitReport')
             .withArgs(slotNumber, rewardsMerkleTree.getHexRoot(), oracleMember1.address)
@@ -246,6 +245,215 @@ describe('DappnodeSmoothingPool test', () => {
             .withArgs(slotNumber, rewardsMerkleTree.getHexRoot());
 
         expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(rewardsMerkleTree.getHexRoot());
+    });
+
+    it('should check oracle methods with quorum 2', async () => {
+        // Check update updateRewardsRoot root
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(ethers.constants.HashZero);
+
+        const valuesRewards = [
+            [deployer.address, ethers.utils.parseEther('1')],
+            [validator2.address, ethers.utils.parseEther('1')],
+        ];
+        const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'uint256'], rewardLeaf));
+        const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true, duplicateOdd: true });
+
+        const slotNumber = 7200;
+
+        // set quorum and oracle members:
+        const newQuorum = 2;
+        await expect(dappnodeSmoothingPool.connect(governance).updateQuorum(newQuorum))
+            .to.emit(dappnodeSmoothingPool, 'UpdateQuorum')
+            .withArgs(newQuorum);
+
+        await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address))
+            .to.emit(dappnodeSmoothingPool, 'AddOracleMember')
+            .withArgs(oracleMember1.address);
+
+        await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember2.address))
+            .to.emit(dappnodeSmoothingPool, 'AddOracleMember')
+            .withArgs(oracleMember2.address);
+
+        await expect(dappnodeSmoothingPool.connect(governance).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.be.revertedWith('DappnodeSmoothingPool::submitReport: Not a oracle member');
+
+        // Submit report with oracle 1
+        const votedReportHash = await dappnodeSmoothingPool.getReportHash(slotNumber, rewardsMerkleTree.getHexRoot());
+
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address))
+            .to.be.equal(await dappnodeSmoothingPool.INITIAL_REPORT_HASH());
+
+        await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.emit(dappnodeSmoothingPool, 'SubmitReport')
+            .withArgs(slotNumber, rewardsMerkleTree.getHexRoot(), oracleMember1.address);
+
+        // Check voted slot:
+        const currentVotes = 1;
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address))
+            .to.be.equal(votedReportHash);
+
+        const currentVotedReport = await dappnodeSmoothingPool.reportHashToReport(votedReportHash);
+        expect(currentVotedReport.slot).to.be.equal(slotNumber);
+        expect(currentVotedReport.votes).to.be.equal(currentVotes);
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(ethers.constants.HashZero);
+
+        // Vote second oracle
+        await expect(dappnodeSmoothingPool.connect(oracleMember2).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.emit(dappnodeSmoothingPool, 'SubmitReport')
+            .withArgs(slotNumber, rewardsMerkleTree.getHexRoot(), oracleMember2.address)
+            .to.emit(dappnodeSmoothingPool, 'ReportConsolidated')
+            .withArgs(slotNumber, rewardsMerkleTree.getHexRoot());
+
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(rewardsMerkleTree.getHexRoot());
+
+        let consolidatedReport = await dappnodeSmoothingPool.reportHashToReport(votedReportHash);
+        expect(consolidatedReport.slot).to.be.equal(0);
+        expect(consolidatedReport.votes).to.be.equal(0);
+
+        // Check that following reports must follow checkpointSlotSize rules
+        await expect(dappnodeSmoothingPool.connect(oracleMember2).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.be.revertedWith('DappnodeSmoothingPool::submitReport: Slot number invalid');
+
+        await expect(dappnodeSmoothingPool.connect(oracleMember2).submitReport(
+            slotNumber + checkpointSlotSize,
+            rewardsMerkleTree.getHexRoot(),
+        ))
+            .to.emit(dappnodeSmoothingPool, 'SubmitReport')
+            .withArgs(slotNumber + checkpointSlotSize, rewardsMerkleTree.getHexRoot(), oracleMember2.address);
+
+        const votedReportHash2 = await dappnodeSmoothingPool.getReportHash(slotNumber + checkpointSlotSize, rewardsMerkleTree.getHexRoot());
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember2.address)).to.be.equal(votedReportHash2);
+        let currentVotedReport2 = await dappnodeSmoothingPool.reportHashToReport(votedReportHash2);
+        expect(currentVotedReport2.slot).to.be.equal(slotNumber + checkpointSlotSize);
+        expect(currentVotedReport2.votes).to.be.equal(1);
+
+        /*
+         * Check that a members can be removed
+         * remove oracle 1
+         */
+        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember1.address))
+            .to.emit(dappnodeSmoothingPool, 'RemoveOracleMember')
+            .withArgs(oracleMember1.address);
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address)).to.be.equal(ethers.constants.HashZero);
+        consolidatedReport = await dappnodeSmoothingPool.reportHashToReport(votedReportHash);
+        expect(consolidatedReport.slot).to.be.equal(0);
+        expect(consolidatedReport.votes).to.be.equal(0);
+
+        // Remove oracle 2
+        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember2.address))
+            .to.emit(dappnodeSmoothingPool, 'RemoveOracleMember')
+            .withArgs(oracleMember2.address);
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember2.address)).to.be.equal(ethers.constants.HashZero);
+        currentVotedReport2 = await dappnodeSmoothingPool.reportHashToReport(votedReportHash2);
+        expect(currentVotedReport2.slot).to.be.equal(slotNumber + checkpointSlotSize);
+        expect(currentVotedReport2.votes).to.be.equal(0);
+    });
+
+    it('should check change report', async () => {
+        // Check update updateRewardsRoot root
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(ethers.constants.HashZero);
+
+        const valuesRewards = [
+            [deployer.address, ethers.utils.parseEther('1')],
+            [validator2.address, ethers.utils.parseEther('1')],
+        ];
+        const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'uint256'], rewardLeaf));
+        const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true, duplicateOdd: true });
+
+        const slotNumber = 7200;
+
+        // set quorum and oracle members:
+        const newQuorum = 2;
+        await expect(dappnodeSmoothingPool.connect(governance).updateQuorum(newQuorum))
+            .to.emit(dappnodeSmoothingPool, 'UpdateQuorum')
+            .withArgs(newQuorum);
+
+        await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address))
+            .to.emit(dappnodeSmoothingPool, 'AddOracleMember')
+            .withArgs(oracleMember1.address);
+
+        await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember2.address))
+            .to.emit(dappnodeSmoothingPool, 'AddOracleMember')
+            .withArgs(oracleMember2.address);
+
+        await expect(dappnodeSmoothingPool.connect(governance).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.be.revertedWith('DappnodeSmoothingPool::submitReport: Not a oracle member');
+
+        // Submit report with oracle 1
+        const votedReportHash = await dappnodeSmoothingPool.getReportHash(slotNumber, rewardsMerkleTree.getHexRoot());
+
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address))
+            .to.be.equal(await dappnodeSmoothingPool.INITIAL_REPORT_HASH());
+
+        await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.emit(dappnodeSmoothingPool, 'SubmitReport')
+            .withArgs(slotNumber, rewardsMerkleTree.getHexRoot(), oracleMember1.address);
+
+        // Check voted slot:
+        const currentVotes = 1;
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address))
+            .to.be.equal(votedReportHash);
+
+        let currentVotedReport = await dappnodeSmoothingPool.reportHashToReport(votedReportHash);
+        expect(currentVotedReport.slot).to.be.equal(slotNumber);
+        expect(currentVotedReport.votes).to.be.equal(currentVotes);
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(ethers.constants.HashZero);
+
+        // Vote first oracle same option, nothing should change
+        await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.emit(dappnodeSmoothingPool, 'SubmitReport')
+            .withArgs(slotNumber, rewardsMerkleTree.getHexRoot(), oracleMember1.address);
+
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(ethers.constants.HashZero);
+        currentVotedReport = await dappnodeSmoothingPool.reportHashToReport(votedReportHash);
+        expect(currentVotedReport.slot).to.be.equal(slotNumber);
+        expect(currentVotedReport.votes).to.be.equal(currentVotes);
+
+        // Change vote
+        await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber, ethers.constants.HashZero))
+            .to.emit(dappnodeSmoothingPool, 'SubmitReport')
+            .withArgs(slotNumber, ethers.constants.HashZero, oracleMember1.address);
+
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(ethers.constants.HashZero);
+        const newVotedReportHash = await dappnodeSmoothingPool.getReportHash(slotNumber, ethers.constants.HashZero);
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address))
+            .to.be.equal(newVotedReportHash);
+
+        currentVotedReport = await dappnodeSmoothingPool.reportHashToReport(newVotedReportHash);
+        expect(currentVotedReport.slot).to.be.equal(slotNumber);
+        expect(currentVotedReport.votes).to.be.equal(currentVotes);
+
+        const previousVotedReport = await dappnodeSmoothingPool.reportHashToReport(votedReportHash);
+        expect(previousVotedReport.slot).to.be.equal(slotNumber);
+        expect(previousVotedReport.votes).to.be.equal(0);
+
+        // Oracle two also agrees
+        await expect(dappnodeSmoothingPool.connect(oracleMember2).submitReport(slotNumber, ethers.constants.HashZero))
+            .to.emit(dappnodeSmoothingPool, 'SubmitReport')
+            .withArgs(slotNumber, ethers.constants.HashZero, oracleMember2.address)
+            .to.emit(dappnodeSmoothingPool, 'ReportConsolidated')
+            .withArgs(slotNumber, ethers.constants.HashZero);
+
+        // Are 0 since consolidated
+        currentVotedReport = await dappnodeSmoothingPool.reportHashToReport(newVotedReportHash);
+        expect(currentVotedReport.slot).to.be.equal(0);
+        expect(currentVotedReport.votes).to.be.equal(0);
+
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address))
+            .to.be.equal(newVotedReportHash);
+
+        // Didint change since it onyl vote once and consolidates the state
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember2.address))
+            .to.be.equal(await dappnodeSmoothingPool.INITIAL_REPORT_HASH());
+
+        // Just to cover all cases, vote with oracle 1
+        await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber + checkpointSlotSize, ethers.constants.HashZero))
+            .to.emit(dappnodeSmoothingPool, 'SubmitReport')
+            .withArgs(slotNumber + checkpointSlotSize, ethers.constants.HashZero, oracleMember1.address);
+
+        currentVotedReport = await dappnodeSmoothingPool.reportHashToReport(newVotedReportHash);
+        expect(currentVotedReport.slot).to.be.equal(0);
+        expect(currentVotedReport.votes).to.be.equal(0);
     });
 
     it('Should claimRewards', async () => {

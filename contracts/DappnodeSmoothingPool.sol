@@ -311,6 +311,8 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
         uint64 slotNumber,
         bytes32 proposedRewardsRoot
     ) public {
+        /// TODO could add check for slotNumber == 0, i think its unnecessary
+
         // Check that the report contains the correct slot number
         uint64 cacheLastConsolidatedSlot = lastConsolidatedSlot;
         if (cacheLastConsolidatedSlot != 0) {
@@ -341,7 +343,7 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
             }
         }
 
-        // Ge the current report
+        // Get the current report
         bytes32 currentReportHash = getReportHash(
             slotNumber,
             proposedRewardsRoot
@@ -374,6 +376,10 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
         } else {
             // Store submitted report with a new added vote
             reportHashToReport[currentReportHash] = currentVotedReport;
+
+            // TODO it's here due optimization, it's more intuitive up
+            // Store voted report hash
+            addressToVotedReportHash[msg.sender] = currentReportHash;
         }
     }
 
