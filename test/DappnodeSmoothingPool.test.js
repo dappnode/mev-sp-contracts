@@ -8,44 +8,56 @@ const { MerkleTree } = require('merkletreejs');
 
 describe('DappnodeSmoothingPool test', () => {
     let deployer;
-    let oracle;
+    let governance;
     let validator1; let validator2; let
-        rewardRecipientValidator2; let donator;
+        rewardRecipientValidator2; let donator; let oracleMember1; let
+            oracleMember2;
 
     let dappnodeSmoothingPool;
 
     const subscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther('0.01'));
     const poolFee = 1000;
     const checkpointSlotSize = 7200;
+    const quorum = 1;
 
     beforeEach('Deploy contract', async () => {
         // Load signers
-        [deployer, oracle, validator1, validator2, rewardRecipientValidator2, donator] = await ethers.getSigners();
+        [deployer,
+            governance,
+            validator1,
+            validator2,
+            rewardRecipientValidator2,
+            donator,
+            oracleMember1,
+            oracleMember2] = await ethers.getSigners();
 
         // Deploy dappnode smoothing pool
         const dappnodeSmoothingPoolFactory = await ethers.getContractFactory('DappnodeSmoothingPool');
         dappnodeSmoothingPool = await upgrades.deployProxy(
             dappnodeSmoothingPoolFactory,
             [
-                oracle.address,
+                governance.address,
                 subscriptionCollateral,
                 poolFee,
                 deployer.address, // pool fee recipient
                 checkpointSlotSize,
+                quorum,
             ],
         );
         await dappnodeSmoothingPool.deployed();
     });
 
     it('should check the initialize', async () => {
-        expect(await dappnodeSmoothingPool.oracle()).to.be.equal(oracle.address);
-        expect(await dappnodeSmoothingPool.subscriptionCollateral()).to.be.equal(subscriptionCollateral);
+        expect(await dappnodeSmoothingPool.owner()).to.be.equal(deployer.address);
+        expect(await dappnodeSmoothingPool.governance()).to.be.equal(governance.address);
         expect(await dappnodeSmoothingPool.subscriptionCollateral()).to.be.equal(subscriptionCollateral);
         expect(await dappnodeSmoothingPool.poolFee()).to.be.equal(poolFee);
         expect(await dappnodeSmoothingPool.poolFeeRecipient()).to.be.equal(deployer.address);
         expect(await dappnodeSmoothingPool.checkpointSlotSize()).to.be.equal(checkpointSlotSize);
-        expect(await dappnodeSmoothingPool.deploymentBlockNumber()).to.be.equal((await dappnodeSmoothingPool.deployTransaction.wait()).blockNumber);
-
+        expect(await dappnodeSmoothingPool.quorum()).to.be.equal(quorum);
+        expect(await dappnodeSmoothingPool.deploymentBlockNumber()).to.be.equal(
+            (await dappnodeSmoothingPool.deployTransaction.wait()).blockNumber,
+        );
     });
 
     it('should check the initialize', async () => {
@@ -54,17 +66,20 @@ describe('DappnodeSmoothingPool test', () => {
         await smoothingTestContractInit.deployed();
 
         await expect(smoothingTestContractInit.initialize(
-            oracle.address,
+            governance.address,
             subscriptionCollateral,
             poolFee,
             deployer.address, // pool fee recipient
             checkpointSlotSize,
+            quorum,
         )).to.emit(smoothingTestContractInit, 'UpdatePoolFee')
             .withArgs(poolFee)
             .to.emit(smoothingTestContractInit, 'UpdatePoolFeeRecipient')
             .withArgs(deployer.address)
             .to.emit(smoothingTestContractInit, 'UpdateCheckpointSlotSize')
-            .withArgs(checkpointSlotSize);
+            .withArgs(checkpointSlotSize)
+            .to.emit(smoothingTestContractInit, 'UpdateQuorum')
+            .withArgs(quorum);
     });
 
     it('should check the fallback function', async () => {
@@ -81,7 +96,7 @@ describe('DappnodeSmoothingPool test', () => {
         })).to.emit(dappnodeSmoothingPool, 'EtherReceived').withArgs(donator.address, donationValue);
     });
 
-    it('Should sunscribe validator and unsubscribe', async () => {
+    it('Should suscribe validator and unsubscribe', async () => {
         const validatorID = 1;
 
         // Check subscribeValidator
@@ -105,37 +120,53 @@ describe('DappnodeSmoothingPool test', () => {
             .withArgs(deployer.address, validatorID);
     });
 
-    it('should check oracle methods', async () => {
-        // Check update updateRewardsRoot root
-        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(ethers.constants.HashZero);
+    it('should check governance methods', async () => {
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address)).to.be.equal(ethers.constants.HashZero);
 
-        const valuesRewards = [
-            [deployer.address, ethers.utils.parseEther('1')],
-            [validator2.address, ethers.utils.parseEther('1')],
-        ];
-        const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'uint256'], rewardLeaf));
-        const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true, duplicateOdd: true });
+        await expect(dappnodeSmoothingPool.connect(deployer).addOracleMember(oracleMember1.address))
+            .to.be.revertedWith('DappnodeSmoothingPool::onlyGovernance: only governance');
 
-        const slotNumber = 7200;
+        await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address))
+            .to.emit(dappnodeSmoothingPool, 'AddOracleMember')
+            .withArgs(oracleMember1.address);
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address))
+            .to.be.equal(await dappnodeSmoothingPool.INITIAL_REPORT_HASH());
 
-        await expect(dappnodeSmoothingPool.connect(deployer).updateRewardsRoot(slotNumber, rewardsMerkleTree.getHexRoot()))
-            .to.be.revertedWith('DappnodeSmoothingPool::onlyOracle: only oracle');
+        await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address))
+            .to.be.revertedWith('DappnodeSmoothingPool::addOracleMember: Already oracle member');
 
-        await expect(dappnodeSmoothingPool.connect(oracle).updateRewardsRoot(slotNumber, rewardsMerkleTree.getHexRoot()))
-            .to.emit(dappnodeSmoothingPool, 'UpdateRewardsRoot')
-            .withArgs(slotNumber, rewardsMerkleTree.getHexRoot());
-        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(rewardsMerkleTree.getHexRoot());
+        // Remove Oracle member
+        await expect(dappnodeSmoothingPool.connect(deployer).removeOracleMember(oracleMember1.address))
+            .to.be.revertedWith('DappnodeSmoothingPool::onlyGovernance: only governance');
 
-        // Check update oracle
-        expect(await dappnodeSmoothingPool.oracle()).to.be.equal(oracle.address);
+        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember2.address))
+            .to.be.revertedWith('DappnodeSmoothingPool::addOracleMember: was not an oracle member');
 
-        await expect(dappnodeSmoothingPool.connect(deployer).updateOracle(deployer.address))
-            .to.be.revertedWith('DappnodeSmoothingPool::onlyOracle: only oracle');
+        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember1.address))
+            .to.emit(dappnodeSmoothingPool, 'RemoveOracleMember')
+            .withArgs(oracleMember1.address);
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address)).to.be.equal(ethers.constants.HashZero);
 
-        await expect(dappnodeSmoothingPool.connect(oracle).updateOracle(deployer.address))
-            .to.emit(dappnodeSmoothingPool, 'UpdateOracle')
+        // Update Quorum
+        const newQuorum = 2;
+        expect(await dappnodeSmoothingPool.quorum()).to.be.equal(quorum);
+        await expect(dappnodeSmoothingPool.connect(deployer).updateQuorum(newQuorum))
+            .to.be.revertedWith('DappnodeSmoothingPool::onlyGovernance: only governance');
+
+        await expect(dappnodeSmoothingPool.connect(governance).updateQuorum(newQuorum))
+            .to.emit(dappnodeSmoothingPool, 'UpdateQuorum')
+            .withArgs(newQuorum);
+        expect(await dappnodeSmoothingPool.quorum()).to.be.equal(newQuorum);
+
+        // Update Governance
+        expect(await dappnodeSmoothingPool.governance()).to.be.equal(governance.address);
+        await expect(dappnodeSmoothingPool.connect(deployer).updateGovernance(deployer.address))
+            .to.be.revertedWith('DappnodeSmoothingPool::onlyGovernance: only governance');
+
+        await expect(dappnodeSmoothingPool.connect(governance).updateGovernance(deployer.address))
+            .to.emit(dappnodeSmoothingPool, 'UpdateGovernance')
             .withArgs(deployer.address);
-        expect(await dappnodeSmoothingPool.oracle()).to.be.equal(deployer.address);
+        expect(await dappnodeSmoothingPool.governance()).to.be.equal(deployer.address);
     });
 
     it('should check owner methods', async () => {
@@ -144,7 +175,7 @@ describe('DappnodeSmoothingPool test', () => {
         expect(await dappnodeSmoothingPool.subscriptionCollateral()).to.be.equal(subscriptionCollateral);
 
         const newCollateral = subscriptionCollateral.mul(2);
-        await expect(dappnodeSmoothingPool.connect(oracle).updateCollateral(newCollateral))
+        await expect(dappnodeSmoothingPool.connect(governance).updateCollateral(newCollateral))
             .to.be.revertedWith('Ownable: caller is not the owner');
 
         await expect(dappnodeSmoothingPool.connect(deployer).updateCollateral(newCollateral))
@@ -154,7 +185,7 @@ describe('DappnodeSmoothingPool test', () => {
 
         // Update fee
         const newPoolFee = poolFee * 2;
-        await expect(dappnodeSmoothingPool.connect(oracle).updatePoolFee(newPoolFee))
+        await expect(dappnodeSmoothingPool.connect(governance).updatePoolFee(newPoolFee))
             .to.be.revertedWith('Ownable: caller is not the owner');
 
         await expect(dappnodeSmoothingPool.connect(deployer).updatePoolFee(10001))
@@ -167,7 +198,7 @@ describe('DappnodeSmoothingPool test', () => {
 
         // Update PoolFeeRecipient
         const poolFeeRecipient = donator.address;
-        await expect(dappnodeSmoothingPool.connect(oracle).updatePoolFeeRecipient(poolFeeRecipient))
+        await expect(dappnodeSmoothingPool.connect(governance).updatePoolFeeRecipient(poolFeeRecipient))
             .to.be.revertedWith('Ownable: caller is not the owner');
 
         await expect(dappnodeSmoothingPool.connect(deployer).updatePoolFeeRecipient(poolFeeRecipient))
@@ -175,10 +206,9 @@ describe('DappnodeSmoothingPool test', () => {
             .withArgs(poolFeeRecipient);
         expect(await dappnodeSmoothingPool.poolFeeRecipient()).to.be.equal(poolFeeRecipient);
 
-
         // Update Checkpoint slot size
         const newCheckpointSlotSize = checkpointSlotSize + 100;
-        await expect(dappnodeSmoothingPool.connect(oracle).updateCheckpointSlotSize(newCheckpointSlotSize))
+        await expect(dappnodeSmoothingPool.connect(governance).updateCheckpointSlotSize(newCheckpointSlotSize))
             .to.be.revertedWith('Ownable: caller is not the owner');
 
         await expect(dappnodeSmoothingPool.connect(deployer).updateCheckpointSlotSize(newCheckpointSlotSize))
@@ -186,7 +216,39 @@ describe('DappnodeSmoothingPool test', () => {
             .withArgs(newCheckpointSlotSize);
         expect(await dappnodeSmoothingPool.checkpointSlotSize()).to.be.equal(newCheckpointSlotSize);
     });
-    it('Should claimRewards and unbann method', async () => {
+
+    it('should check oracle methods with quorum 1', async () => {
+        // Check update updateRewardsRoot root
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(ethers.constants.HashZero);
+
+        const valuesRewards = [
+            [deployer.address, ethers.utils.parseEther('1')],
+            [validator2.address, ethers.utils.parseEther('1')],
+        ];
+        const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'uint256'], rewardLeaf));
+        const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true, duplicateOdd: true });
+
+        const slotNumber = 7200;
+
+        // current quorum is 1
+        await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address))
+            .to.emit(dappnodeSmoothingPool, 'AddOracleMember')
+            .withArgs(oracleMember1.address);
+
+        await expect(dappnodeSmoothingPool.connect(governance).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.be.revertedWith('DappnodeSmoothingPool::submitReport: Not a oracle member');
+
+        // TODO test both events
+        await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.emit(dappnodeSmoothingPool, 'SubmitReport')
+            .withArgs(slotNumber, rewardsMerkleTree.getHexRoot(), oracleMember1.address)
+            .to.emit(dappnodeSmoothingPool, 'ReportConsolidated')
+            .withArgs(slotNumber, rewardsMerkleTree.getHexRoot());
+
+        expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(rewardsMerkleTree.getHexRoot());
+    });
+
+    it('Should claimRewards', async () => {
         const availableBalanceValidator1 = ethers.utils.parseEther('10');
         const availableBalanceValidator2 = ethers.utils.parseEther('1');
 
@@ -203,8 +265,10 @@ describe('DappnodeSmoothingPool test', () => {
         // Update rewards root
         const slotNumber = 7200;
 
-        await expect(dappnodeSmoothingPool.connect(oracle).updateRewardsRoot(slotNumber, rewardsMerkleTree.getHexRoot()))
-            .to.emit(dappnodeSmoothingPool, 'UpdateRewardsRoot')
+        // current quorum is 1
+        await dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address);
+        await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.emit(dappnodeSmoothingPool, 'ReportConsolidated')
             .withArgs(slotNumber, rewardsMerkleTree.getHexRoot());
 
         expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(rewardsMerkleTree.getHexRoot());
@@ -285,9 +349,12 @@ describe('DappnodeSmoothingPool test', () => {
         // Update rewards root
         const slotNumber = 7200;
 
-        await expect(dappnodeSmoothingPool.connect(oracle).updateRewardsRoot(slotNumber, rewardsMerkleTree.getHexRoot()))
-            .to.emit(dappnodeSmoothingPool, 'UpdateRewardsRoot')
+        // current quorum is 1
+        await dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address);
+        await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.emit(dappnodeSmoothingPool, 'ReportConsolidated')
             .withArgs(slotNumber, rewardsMerkleTree.getHexRoot());
+
         expect(await dappnodeSmoothingPool.rewardsRoot()).to.be.equal(rewardsMerkleTree.getHexRoot());
 
         for (let valIndex = 0; valIndex < valuesRewards.length; valIndex++) {

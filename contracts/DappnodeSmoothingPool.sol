@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.8.15;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -9,6 +9,20 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
  * Contract responsible to manage the subscriptions and rewards of the dappnode smoothing pool
  */
 contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
+    /**
+     * @notice Struct to store voted reports
+     * @param slot Slot of the report
+     * @param votes Current votes of this report
+     */
+    struct Report {
+        uint64 slot;
+        uint64 votes;
+    }
+
+    // This value is reserved as an initial voted report to mark an oracle address as active
+    bytes32 public constant INITIAL_REPORT_HASH = bytes32(uint256(1));
+    // 0x0000000000000000000000000000000000000000000000000000000000000001;
+
     // Subscription collateral
     uint256 public subscriptionCollateral;
 
@@ -23,10 +37,6 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     // withdrawalAddress --> rewardAddress
     mapping(address => address) public rewardRecipient;
 
-    // Oracle address, will be responsible to upgrade the rewardsRoot
-    // TODO will be update to a quorum N/M
-    address public oracle;
-
     // The above parameters are used to synch information on the oracle
 
     // Smoothing pool fee expressed in % with 2 decimals
@@ -35,11 +45,30 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     // Smoothing pool fee recipient
     address public poolFeeRecipient;
 
-    // Indicates how many slots must be between checkpoints
-    uint256 public checkpointSlotSize;
-
     // Indicates the deployment block number
     uint256 public deploymentBlockNumber;
+
+    // The above parameters are relative to the oracle
+
+    // Indicates the last consolidated slot
+    uint64 public lastConsolidatedSlot;
+
+    // Indicates how many slots must be between checkpoints
+    uint64 public checkpointSlotSize;
+
+    // Number of reports that must match to consolidate a new rewards root (N/M)
+    uint64 public quorum;
+
+    // Will be able to add/remove members of the oracle aswell of udpate the quorum
+    address public governance;
+    // TODO pending governance?
+
+    // Oracle member address --> current voted reportHash
+    // reportHash: keccak256(abi.encodePacked(slot, rewardsRoot))
+    mapping(address => bytes32) public addressToVotedReportHash;
+
+    // reportHash --> Report(slot | votes)
+    mapping(bytes32 => Report) public reportHashToReport;
 
     /**
      * @dev Emitted when the contract receives ether
@@ -87,7 +116,7 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     /**
      * @dev Emitted when the checkpoint slot size is updated
      */
-    event UpdateCheckpointSlotSize(uint256 newCheckpointSlotSize);
+    event UpdateCheckpointSlotSize(uint64 newCheckpointSlotSize);
 
     /**
      * @dev Emitted when the subscription collateral is udpated
@@ -95,35 +124,62 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     event UpdateSubscriptionCollateral(uint256 newSubscriptionCollateral);
 
     /**
-     * @dev Emitted when the rewards root is updated
+     * @dev Emitted when a report is submitted
      */
-    event UpdateRewardsRoot(uint256 slotNumber, bytes32 newRewardsRoot);
+    event SubmitReport(
+        uint256 slotNumber,
+        bytes32 newRewardsRoot,
+        address oracleMember
+    );
 
     /**
-     * @dev Emitted when the rewards root is updated
+     * @dev Emitted when a report is consolidated
      */
-    event UpdateOracle(address newOracle);
+    event ReportConsolidated(uint256 slotNumber, bytes32 newRewardsRoot);
 
     /**
-     * @param _oracle Oracle address
+     * @dev Emitted when the quorum is updated
+     */
+    event UpdateQuorum(uint64 newQuorum);
+
+    /**
+     * @dev Emitted when a new oracle member is added
+     */
+    event AddOracleMember(address newOracleMember);
+
+    /**
+     * @dev Emitted when a new oracle member is removed
+     */
+    event RemoveOracleMember(address oracleMemberRemoved);
+
+    /**
+     * @dev Emitted when the new governance is updated
+     */
+    event UpdateGovernance(address newGovernance);
+
+    /**
+     * @param _governance Governance address
      * @param _subscriptionCollateral Subscription collateral
      * @param _poolFee Pool Fee
      * @param _poolFeeRecipient Pool fee recipient
      * @param _checkpointSlotSize Checkpoint slot size
      */
     function initialize(
-        address _oracle,
+        address _governance,
         uint256 _subscriptionCollateral,
         uint256 _poolFee,
         address _poolFeeRecipient,
-        uint256 _checkpointSlotSize
+        uint64 _checkpointSlotSize,
+        uint64 _quorum
     ) public initializer {
-        oracle = _oracle;
+        governance = _governance;
         subscriptionCollateral = _subscriptionCollateral;
 
         poolFee = _poolFee;
         poolFeeRecipient = _poolFeeRecipient;
         checkpointSlotSize = _checkpointSlotSize;
+        quorum = _quorum;
+
         deploymentBlockNumber = block.number;
 
         __Ownable_init();
@@ -131,15 +187,16 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
         emit UpdatePoolFee(_poolFee);
         emit UpdatePoolFeeRecipient(_poolFeeRecipient);
         emit UpdateCheckpointSlotSize(_checkpointSlotSize);
+        emit UpdateQuorum(_quorum);
     }
 
     /**
-     * @dev Oracle modifier
+     * @dev Governance modifier
      */
-    modifier onlyOracle() {
+    modifier onlyGovernance() {
         require(
-            oracle == msg.sender,
-            "DappnodeSmoothingPool::onlyOracle: only oracle"
+            governance == msg.sender,
+            "DappnodeSmoothingPool::onlyGovernance: only governance"
         );
         _;
     }
@@ -152,13 +209,15 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
         emit EtherReceived(msg.sender, msg.value);
     }
 
+    ////////////////////////
+    // Validators functions
+    ///////////////////////
+
     /**
      * @notice Subscribe a validator ID to the smoothing pool
      * @param validatorID Validator ID
      */
     function subscribeValidator(uint64 validatorID) public payable {
-        // nullifeir subscription
-
         // Check collateral
         require(
             msg.value == subscriptionCollateral,
@@ -239,12 +298,166 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
     }
 
     ////////////////////
+    // Oracle functions
+    ///////////////////
+
+    /**
+     * @notice Submit a report for a new rewards root
+     * If the quorum is reached, consolidate the rewards root
+     * @param slotNumber Slot number
+     * @param proposedRewardsRoot Proposed rewards root
+     */
+    function submitReport(
+        uint64 slotNumber,
+        bytes32 proposedRewardsRoot
+    ) public {
+        // Check that the report contains the correct slot number
+        uint64 cacheLastConsolidatedSlot = lastConsolidatedSlot;
+        if (cacheLastConsolidatedSlot != 0) {
+            require(
+                slotNumber == cacheLastConsolidatedSlot + checkpointSlotSize,
+                "DappnodeSmoothingPool::submitReport: Slot number invalid"
+            );
+        }
+
+        // Check the last voted report
+        bytes32 lastVotedReportHash = addressToVotedReportHash[msg.sender];
+
+        // Check if it's a valid oracle member
+        require(
+            lastVotedReportHash != bytes32(0),
+            "DappnodeSmoothingPool::submitReport: Not a oracle member"
+        );
+
+        // If it's not the initial report hash, check last report voted
+        if (lastVotedReportHash != INITIAL_REPORT_HASH) {
+            Report storage lastVotedReport = reportHashToReport[
+                lastVotedReportHash
+            ];
+
+            // If this member already voted for this slot substract a vote from that report
+            if (lastVotedReport.slot == slotNumber) {
+                lastVotedReport.votes--;
+            }
+        }
+
+        // Ge the current report
+        bytes32 currentReportHash = getReportHash(
+            slotNumber,
+            proposedRewardsRoot
+        );
+        Report memory currentVotedReport = reportHashToReport[
+            currentReportHash
+        ];
+
+        // Check if it's a new report
+        if (currentVotedReport.slot == 0) {
+            // It's a new report, set slot and votes
+            currentVotedReport.slot = slotNumber;
+            currentVotedReport.votes = 1;
+        } else {
+            // It's an existing report, add a new vote
+            currentVotedReport.votes++;
+        }
+
+        // Emit Submit report before check the quorum
+        emit SubmitReport(slotNumber, proposedRewardsRoot, msg.sender);
+
+        // Check if it reaches the quorum
+        if (currentVotedReport.votes == quorum) {
+            delete reportHashToReport[currentReportHash]; // TODO
+
+            // Consolidate report
+            lastConsolidatedSlot = slotNumber;
+            rewardsRoot = proposedRewardsRoot;
+            emit ReportConsolidated(slotNumber, proposedRewardsRoot);
+        } else {
+            // Store submitted report with a new added vote
+            reportHashToReport[currentReportHash] = currentVotedReport;
+        }
+    }
+
+    ////////////////////////
+    // Governance functions
+    ////////////////////////
+
+    // TODO keep track of an array of oracle members? (read only, write only when add/remove oracle members)
+    /**
+     * @notice Add an oracle member
+     * Only the governance can call this function
+     * @param newOracleMember Address of the new oracle member
+     */
+    function addOracleMember(address newOracleMember) public onlyGovernance {
+        require(
+            addressToVotedReportHash[newOracleMember] == bytes32(0),
+            "DappnodeSmoothingPool::addOracleMember: Already oracle member"
+        );
+
+        // Add oracle member
+        addressToVotedReportHash[newOracleMember] = INITIAL_REPORT_HASH;
+
+        emit AddOracleMember(newOracleMember);
+    }
+
+    /**
+     * @notice Remove an oracle member
+     * Only the governance can call this function
+     * @param oracleMember Address of the removed oracle member
+     */
+    function removeOracleMember(address oracleMember) public onlyGovernance {
+        bytes32 lastVotedReportHash = addressToVotedReportHash[oracleMember];
+        require(
+            lastVotedReportHash != bytes32(0),
+            "DappnodeSmoothingPool::addOracleMember: was not an oracle member"
+        );
+
+        // If it's not the initial report hash, check last report voted
+        if (lastVotedReportHash != INITIAL_REPORT_HASH) {
+            Report storage lastVotedReport = reportHashToReport[
+                lastVotedReportHash
+            ];
+
+            // Substract a vote of this oracle member
+            // If the votes == 0, that report was already consolidated
+            if (lastVotedReport.votes > 0) {
+                lastVotedReport.votes--;
+            }
+        }
+
+        // Remove oracle member
+        addressToVotedReportHash[oracleMember] = bytes32(0);
+
+        emit RemoveOracleMember(oracleMember);
+    }
+
+    /**
+     * @notice Update the quorum value
+     * Only the governance can call this function
+     * @param newQuorum new quorum
+     */
+    function updateQuorum(uint64 newQuorum) public onlyGovernance {
+        // TODO check no 0?
+        quorum = newQuorum;
+        emit UpdateQuorum(newQuorum);
+    }
+
+    /**
+     * @notice Update governance address
+     * Only the governance can call this function
+     * @param newGovernance new governance address
+     */
+    function updateGovernance(address newGovernance) public onlyGovernance {
+        governance = newGovernance;
+        emit UpdateGovernance(newGovernance);
+    }
+
+    ///////////////////
     // Owner functions
     ///////////////////
 
     /**
      * @notice Update pool fee
-     * Only the owner/governance can call this function
+     * Only the owner can call this function
      * @param newPoolFee new pool fee
      */
     function updatePoolFee(uint256 newPoolFee) public onlyOwner {
@@ -255,7 +468,7 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
 
     /**
      * @notice Update the pool fee recipient
-     * Only the owner/governance can call this function
+     * Only the owner can call this function
      * @param newPoolFeeRecipient new pool fee recipient
      */
     function updatePoolFeeRecipient(
@@ -267,11 +480,11 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
 
     /**
      * @notice Update the checkpoint slot size
-     * Only the owner/governance can call this function
+     * Only the owner can call this function
      * @param newCheckpointSlotSize new checkpoint slot size
      */
     function updateCheckpointSlotSize(
-        uint256 newCheckpointSlotSize
+        uint64 newCheckpointSlotSize
     ) public onlyOwner {
         checkpointSlotSize = newCheckpointSlotSize;
         emit UpdateCheckpointSlotSize(newCheckpointSlotSize);
@@ -279,7 +492,7 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
 
     /**
      * @notice Update the collateral needed to subscribe a validator
-     * Only the owner/governance can call this function
+     * Only the owner can call this function
      * @param newSubscriptionCollateral new subscription collateral
      */
     function updateCollateral(
@@ -289,29 +502,18 @@ contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
         emit UpdateSubscriptionCollateral(newSubscriptionCollateral);
     }
 
-    ////////////////////
-    // Oracle functions
     ///////////////////
-
+    // View functions
+    ///////////////////
     /**
-     * @notice Update rewards root for a slot number
-     * @param slotNumber Slot number
-     * @param newRewardsRoot New rewards root
+     * @notice Get the report Hash given the rewards root and slot
+     * @param _slot Slot
+     * @param _rewardsRoot Rewards root
      */
-    function updateRewardsRoot(
-        uint256 slotNumber,
-        bytes32 newRewardsRoot
-    ) public onlyOracle {
-        rewardsRoot = newRewardsRoot;
-        emit UpdateRewardsRoot(slotNumber, newRewardsRoot);
-    }
-
-    /**
-     * @notice Update Oracle address
-     * @param newOracle new oracle address
-     */
-    function updateOracle(address newOracle) public onlyOracle {
-        oracle = newOracle;
-        emit UpdateOracle(newOracle);
+    function getReportHash(
+        uint64 _slot,
+        bytes32 _rewardsRoot
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_slot, _rewardsRoot));
     }
 }
