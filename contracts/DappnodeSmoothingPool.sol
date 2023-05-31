@@ -2,13 +2,12 @@
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * Contract responsible to manage the subscriptions and rewards of the dappnode smoothing pool
  */
-contract DappnodeSmoothingPool is Initializable, OwnableUpgradeable {
+contract DappnodeSmoothingPool is OwnableUpgradeable {
     /**
      * @notice Struct to store voted reports
      * @param slot Slot of the report
