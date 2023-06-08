@@ -61,6 +61,8 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     // Will be able to add/remove members of the oracle aswell of udpate the quorum
     address public governance;
 
+    // TODO pending governance?
+
     // Oracle member address --> current voted reportHash
     // reportHash: keccak256(abi.encodePacked(slot, rewardsRoot))
     mapping(address => bytes32) public addressToVotedReportHash;
@@ -92,7 +94,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     );
 
     /**
-     * @dev Emitted when a new address subscribes
+     * @dev Emitted when a validator address sets his rewards recipient
      */
     event SetRewardRecipient(address withdrawalAddress, address poolRecipient);
 
@@ -183,7 +185,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
 
         require(
             _quorum != 0,
-            "DappnodeSmoothingPool::initialize: quorum cannot be 0"
+            "DappnodeSmoothingPool::initialize: Quorum cannot be 0"
         );
 
         // Set initialize parameters
@@ -213,7 +215,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     modifier onlyGovernance() {
         require(
             governance == msg.sender,
-            "DappnodeSmoothingPool::onlyGovernance: only governance"
+            "DappnodeSmoothingPool::onlyGovernance: Only governance"
         );
         _;
     }
@@ -267,7 +269,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
 
         require(
             MerkleProofUpgradeable.verify(merkleProof, rewardsRoot, node),
-            "DappnodeSmoothingPool::claimRewards Invalid merkle proof"
+            "DappnodeSmoothingPool::claimRewards: Invalid merkle proof"
         );
 
         // Get claimable ether
@@ -434,7 +436,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         bytes32 lastVotedReportHash = addressToVotedReportHash[oracleMember];
         require(
             lastVotedReportHash != bytes32(0),
-            "DappnodeSmoothingPool::addOracleMember: was not an oracle member"
+            "DappnodeSmoothingPool::addOracleMember: Was not an oracle member"
         );
 
         // If it's not the initial report hash, check last report voted
@@ -464,7 +466,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     function updateQuorum(uint64 newQuorum) public onlyGovernance {
         require(
             newQuorum != 0,
-            "DappnodeSmoothingPool::updateQuorum: quorum cannot be 0"
+            "DappnodeSmoothingPool::updateQuorum: Quorum cannot be 0"
         );
         quorum = newQuorum;
         emit UpdateQuorum(newQuorum);
@@ -492,7 +494,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     function initSmoothingPool(
         uint64 initialSmoothingPoolSlot
     ) public onlyOwner {
-        // Smoothing pool must not be initialized before
+        // Smoothing pool must not have been initialized
         require(
             lastConsolidatedSlot == 0,
             "DappnodeSmoothingPool::initSmoothingPool: Smoothing pool already initialized"
@@ -501,7 +503,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         // Cannot initialize smoothing pool to slot 0
         require(
             initialSmoothingPoolSlot != 0,
-            "DappnodeSmoothingPool::initSmoothingPool: cannot initialize to slot 0"
+            "DappnodeSmoothingPool::initSmoothingPool: Cannot initialize to slot 0"
         );
 
         lastConsolidatedSlot = initialSmoothingPoolSlot;
