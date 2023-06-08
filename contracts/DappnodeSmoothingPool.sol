@@ -60,7 +60,6 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
 
     // Will be able to add/remove members of the oracle aswell of udpate the quorum
     address public governance;
-    // TODO pending governance?
 
     // Oracle member address --> current voted reportHash
     // reportHash: keccak256(abi.encodePacked(slot, rewardsRoot))
@@ -101,6 +100,11 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      * @dev Emitted when a validator unsubscribes
      */
     event UnsubscribeValidator(address sender, uint64 validatorID);
+
+    /**
+     * @dev Emitted when a hte smoothing pool is initialized
+     */
+    event InitSmoothingPool(uint64 initialSmoothingPoolSlot);
 
     /**
      * @dev Emitted when the pool fee is updated
@@ -171,18 +175,32 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         uint64 _checkpointSlotSize,
         uint64 _quorum
     ) public initializer {
+        // Initialize requires
+        require(
+            _poolFee <= 10000,
+            "DappnodeSmoothingPool::initialize: Pool fee cannot be greater than 100%"
+        );
+
+        require(
+            _quorum != 0,
+            "DappnodeSmoothingPool::initialize: quorum cannot be 0"
+        );
+
+        // Set initialize parameters
         governance = _governance;
         subscriptionCollateral = _subscriptionCollateral;
 
-        poolFee = _poolFee;
-        poolFeeRecipient = _poolFeeRecipient;
         checkpointSlotSize = _checkpointSlotSize;
         quorum = _quorum;
 
+        poolFee = _poolFee;
+        poolFeeRecipient = _poolFeeRecipient;
         deploymentBlockNumber = block.number;
 
+        // Initialize OZ libs
         __Ownable_init();
 
+        // Emit events
         emit UpdatePoolFee(_poolFee);
         emit UpdatePoolFeeRecipient(_poolFeeRecipient);
         emit UpdateCheckpointSlotSize(_checkpointSlotSize);
@@ -310,16 +328,18 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         uint64 slotNumber,
         bytes32 proposedRewardsRoot
     ) public {
-        /// TODO could add check for slotNumber == 0, i think its unnecessary
-
         // Check that the report contains the correct slot number
         uint64 cacheLastConsolidatedSlot = lastConsolidatedSlot;
-        if (cacheLastConsolidatedSlot != 0) {
-            require(
-                slotNumber == cacheLastConsolidatedSlot + checkpointSlotSize,
-                "DappnodeSmoothingPool::submitReport: Slot number invalid"
-            );
-        }
+
+        require(
+            cacheLastConsolidatedSlot != 0,
+            "DappnodeSmoothingPool::submitReport: Smoothing pool not initialized"
+        );
+
+        require(
+            slotNumber == cacheLastConsolidatedSlot + checkpointSlotSize,
+            "DappnodeSmoothingPool::submitReport: Slot number invalid"
+        );
 
         // Check the last voted report
         bytes32 lastVotedReportHash = addressToVotedReportHash[msg.sender];
@@ -366,7 +386,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
 
         // Check if it reaches the quorum
         if (currentVotedReport.votes == quorum) {
-            delete reportHashToReport[currentReportHash]; // TODO
+            delete reportHashToReport[currentReportHash];
 
             // Consolidate report
             lastConsolidatedSlot = slotNumber;
@@ -376,7 +396,6 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
             // Store submitted report with a new added vote
             reportHashToReport[currentReportHash] = currentVotedReport;
 
-            // TODO it's here due optimization, it's more intuitive up
             // Store voted report hash
             addressToVotedReportHash[msg.sender] = currentReportHash;
         }
@@ -387,6 +406,8 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     ////////////////////////
 
     // TODO keep track of an array of oracle members? (read only, write only when add/remove oracle members)
+    // YES Array / internal func
+
     /**
      * @notice Add an oracle member
      * Only the governance can call this function
@@ -441,7 +462,10 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      * @param newQuorum new quorum
      */
     function updateQuorum(uint64 newQuorum) public onlyGovernance {
-        // TODO check no 0?
+        require(
+            newQuorum != 0,
+            "DappnodeSmoothingPool::updateQuorum: quorum cannot be 0"
+        );
         quorum = newQuorum;
         emit UpdateQuorum(newQuorum);
     }
@@ -461,12 +485,39 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     ///////////////////
 
     /**
+     * @notice Initialize smoothing pool
+     * Only the owner can call this function
+     * @param initialSmoothingPoolSlot Initial smoothing pool slot
+     */
+    function initSmoothingPool(
+        uint64 initialSmoothingPoolSlot
+    ) public onlyOwner {
+        // Smoothing pool must not be initialized before
+        require(
+            lastConsolidatedSlot == 0,
+            "DappnodeSmoothingPool::initSmoothingPool: Smoothing pool already initialized"
+        );
+
+        // Cannot initialize smoothing pool to slot 0
+        require(
+            initialSmoothingPoolSlot != 0,
+            "DappnodeSmoothingPool::initSmoothingPool: cannot initialize to slot 0"
+        );
+
+        lastConsolidatedSlot = initialSmoothingPoolSlot;
+        emit InitSmoothingPool(initialSmoothingPoolSlot);
+    }
+
+    /**
      * @notice Update pool fee
      * Only the owner can call this function
      * @param newPoolFee new pool fee
      */
     function updatePoolFee(uint256 newPoolFee) public onlyOwner {
-        require(newPoolFee <= 10000, "Pool fee cannot be greater than 100%");
+        require(
+            newPoolFee <= 10000,
+            "DappnodeSmoothingPool::updatePoolFee: Pool fee cannot be greater than 100%"
+        );
         poolFee = newPoolFee;
         emit UpdatePoolFee(newPoolFee);
     }
