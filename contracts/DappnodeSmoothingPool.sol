@@ -342,15 +342,18 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         // Check that the report contains the correct slot number
         uint64 cacheLastConsolidatedSlot = lastConsolidatedSlot;
 
-        require(
-            cacheLastConsolidatedSlot != 0,
-            "DappnodeSmoothingPool::submitReport: Smoothing pool not initialized"
-        );
-
-        require(
-            slotNumber == cacheLastConsolidatedSlot + checkpointSlotSize,
-            "DappnodeSmoothingPool::submitReport: Slot number invalid"
-        );
+        // On the first report don't apply the checkpointSlotSize restriction
+        if (cacheLastConsolidatedSlot != 0) {
+            require(
+                slotNumber == cacheLastConsolidatedSlot + checkpointSlotSize,
+                "DappnodeSmoothingPool::submitReport: Slot number invalid"
+            );
+        } else {
+            require(
+                slotNumber != 0,
+                "DappnodeSmoothingPool::submitReport: Initial slotNumber cannot be 0"
+            );
+        }
 
         // Check the last voted report
         bytes32 lastVotedReportHash = addressToVotedReportHash[msg.sender];
@@ -528,30 +531,6 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     ///////////////////
     // Owner functions
     ///////////////////
-
-    /**
-     * @notice Initialize smoothing pool
-     * Only the owner can call this function
-     * @param initialSmoothingPoolSlot Initial smoothing pool slot
-     */
-    function initSmoothingPool(
-        uint64 initialSmoothingPoolSlot
-    ) external onlyOwner {
-        // Smoothing pool must not have been initialized
-        require(
-            lastConsolidatedSlot == 0,
-            "DappnodeSmoothingPool::initSmoothingPool: Smoothing pool already initialized"
-        );
-
-        // Cannot initialize smoothing pool to slot 0
-        require(
-            initialSmoothingPoolSlot != 0,
-            "DappnodeSmoothingPool::initSmoothingPool: Cannot initialize to slot 0"
-        );
-
-        lastConsolidatedSlot = initialSmoothingPoolSlot;
-        emit InitSmoothingPool(initialSmoothingPoolSlot);
-    }
 
     /**
      * @notice Update pool fee

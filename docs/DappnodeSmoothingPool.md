@@ -186,21 +186,6 @@ Allow the current pending governance to accept the governance
 
 
 
-### initSmoothingPool
-```solidity
-  function initSmoothingPool(
-    uint64 initialSmoothingPoolSlot
-  ) external
-```
-Initialize smoothing pool
-Only the owner can call this function
-
-
-#### Parameters:
-| Name | Type | Description                                                          |
-| :--- | :--- | :------------------------------------------------------------------- |
-|`initialSmoothingPoolSlot` | uint64 | Initial smoothing pool slot
-
 ### updatePoolFee
 ```solidity
   function updatePoolFee(
