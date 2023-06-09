@@ -130,23 +130,59 @@ describe('DappnodeSmoothingPool test', () => {
         await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address))
             .to.emit(dappnodeSmoothingPool, 'AddOracleMember')
             .withArgs(oracleMember1.address);
+
+        await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember2.address))
+            .to.emit(dappnodeSmoothingPool, 'AddOracleMember')
+            .withArgs(oracleMember2.address);
+
         expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address))
             .to.be.equal(await dappnodeSmoothingPool.INITIAL_REPORT_HASH());
+
+        expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember2.address))
+            .to.be.equal(await dappnodeSmoothingPool.INITIAL_REPORT_HASH());
+
+        const oracleMemberIndex1 = 0;
+        expect(await dappnodeSmoothingPool.getOracleMemberIndex(oracleMember1.address))
+            .to.be.equal(oracleMemberIndex1);
+        expect(await dappnodeSmoothingPool.getOracleMemberIndex(oracleMember2.address))
+            .to.be.equal(1);
+
+        expect(await dappnodeSmoothingPool.getOracleMembersCount())
+            .to.be.equal(2);
+
+        expect(await dappnodeSmoothingPool.getAllOracleMembers())
+            .to.deep.equal([oracleMember1.address, oracleMember2.address]);
 
         await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address))
             .to.be.revertedWith('DappnodeSmoothingPool::addOracleMember: Already oracle member');
 
         // Remove Oracle member
-        await expect(dappnodeSmoothingPool.connect(deployer).removeOracleMember(oracleMember1.address))
+        await expect(dappnodeSmoothingPool.connect(deployer).removeOracleMember(oracleMember1.address, oracleMemberIndex1))
             .to.be.revertedWith('DappnodeSmoothingPool::onlyGovernance: Only governance');
 
-        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember2.address))
-            .to.be.revertedWith('DappnodeSmoothingPool::addOracleMember: Was not an oracle member');
+        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(deployer.address, oracleMemberIndex1))
+            .to.be.revertedWith('DappnodeSmoothingPool::removeOracleMember: Was not an oracle member');
 
-        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember1.address))
+        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember2.address, oracleMemberIndex1))
+            .to.be.revertedWith('DappnodeSmoothingPool::removeOracleMember: Oracle member index does not match');
+
+        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember1.address, oracleMemberIndex1))
             .to.emit(dappnodeSmoothingPool, 'RemoveOracleMember')
             .withArgs(oracleMember1.address);
+
         expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address)).to.be.equal(ethers.constants.HashZero);
+
+        await expect(dappnodeSmoothingPool.getOracleMemberIndex(oracleMember1.address))
+            .to.be.revertedWith('DappnodeSmoothingPool::getOracleMemberIndex: Oracle member not found');
+
+        expect(await dappnodeSmoothingPool.getOracleMemberIndex(oracleMember2.address))
+            .to.be.equal(0); // change
+
+        expect(await dappnodeSmoothingPool.getOracleMembersCount())
+            .to.be.equal(1);
+
+        expect(await dappnodeSmoothingPool.getAllOracleMembers())
+            .to.deep.equal([oracleMember2.address]);
 
         // Update Quorum
         const newQuorum = 2;
@@ -363,7 +399,8 @@ describe('DappnodeSmoothingPool test', () => {
          * Check that a members can be removed
          * remove oracle 1
          */
-        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember1.address))
+        let oracleMemberIndex = await dappnodeSmoothingPool.getOracleMemberIndex(oracleMember1.address);
+        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember1.address, oracleMemberIndex))
             .to.emit(dappnodeSmoothingPool, 'RemoveOracleMember')
             .withArgs(oracleMember1.address);
         expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address)).to.be.equal(ethers.constants.HashZero);
@@ -372,7 +409,8 @@ describe('DappnodeSmoothingPool test', () => {
         expect(consolidatedReport.votes).to.be.equal(0);
 
         // Remove oracle 2
-        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember2.address))
+        oracleMemberIndex = await dappnodeSmoothingPool.getOracleMemberIndex(oracleMember2.address);
+        await expect(dappnodeSmoothingPool.connect(governance).removeOracleMember(oracleMember2.address, oracleMemberIndex))
             .to.emit(dappnodeSmoothingPool, 'RemoveOracleMember')
             .withArgs(oracleMember2.address);
         expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember2.address)).to.be.equal(ethers.constants.HashZero);

@@ -70,6 +70,9 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     // reportHash --> Report(slot | votes)
     mapping(bytes32 => Report) public reportHashToReport;
 
+    // Above parameters are just used to handly get the current oracle information
+    address[] public oracleMembers;
+
     /**
      * @dev Emitted when the contract receives ether
      */
@@ -407,9 +410,6 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     // Governance functions
     ////////////////////////
 
-    // TODO keep track of an array of oracle members? (read only, write only when add/remove oracle members)
-    // YES Array / internal func
-
     /**
      * @notice Add an oracle member
      * Only the governance can call this function
@@ -424,19 +424,34 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         // Add oracle member
         addressToVotedReportHash[newOracleMember] = INITIAL_REPORT_HASH;
 
+        // Add oracle member to the oracleMembers array
+        oracleMembers.push(newOracleMember);
+
         emit AddOracleMember(newOracleMember);
     }
 
     /**
      * @notice Remove an oracle member
      * Only the governance can call this function
-     * @param oracleMember Address of the removed oracle member
+     * @param oracleMemberAddress Address of the removed oracle member
+     * @param oracleMemberIndex Index of the removed oracle member
      */
-    function removeOracleMember(address oracleMember) public onlyGovernance {
-        bytes32 lastVotedReportHash = addressToVotedReportHash[oracleMember];
+    function removeOracleMember(
+        address oracleMemberAddress,
+        uint256 oracleMemberIndex
+    ) public onlyGovernance {
+        bytes32 lastVotedReportHash = addressToVotedReportHash[
+            oracleMemberAddress
+        ];
+
         require(
             lastVotedReportHash != bytes32(0),
-            "DappnodeSmoothingPool::addOracleMember: Was not an oracle member"
+            "DappnodeSmoothingPool::removeOracleMember: Was not an oracle member"
+        );
+
+        require(
+            oracleMembers[oracleMemberIndex] == oracleMemberAddress,
+            "DappnodeSmoothingPool::removeOracleMember: Oracle member index does not match"
         );
 
         // If it's not the initial report hash, check last report voted
@@ -453,9 +468,15 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         }
 
         // Remove oracle member
-        addressToVotedReportHash[oracleMember] = bytes32(0);
+        addressToVotedReportHash[oracleMemberAddress] = bytes32(0);
 
-        emit RemoveOracleMember(oracleMember);
+        // Remove the oracle member from the oracleMembers array
+        oracleMembers[oracleMemberIndex] = oracleMembers[
+            oracleMembers.length - 1
+        ];
+        oracleMembers.pop();
+
+        emit RemoveOracleMember(oracleMemberAddress);
     }
 
     /**
@@ -563,8 +584,42 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     ///////////////////
     // View functions
     ///////////////////
+
     /**
-     * @notice Get the report Hash given the rewards root and slot
+     * @notice Return oracle member index
+     * @param oracleMember oracle member address
+     */
+    function getOracleMemberIndex(
+        address oracleMember
+    ) public view returns (uint256) {
+        for (uint256 i = 0; i < oracleMembers.length; ++i) {
+            if (oracleMembers[i] == oracleMember) {
+                return i;
+            }
+        }
+
+        // In case the oracle member does not exist, revert
+        revert(
+            "DappnodeSmoothingPool::getOracleMemberIndex: Oracle member not found"
+        );
+    }
+
+    /**
+     * @notice Return all the oracle members
+     */
+    function getAllOracleMembers() public view returns (address[] memory) {
+        return oracleMembers;
+    }
+
+    /**
+     * @notice Return oracle members count
+     */
+    function getOracleMembersCount() public view returns (uint256) {
+        return oracleMembers.length;
+    }
+
+    /**
+     * @notice Get the report hash given the rewards root and slot
      * @param _slot Slot
      * @param _rewardsRoot Rewards root
      */
