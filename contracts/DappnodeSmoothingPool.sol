@@ -58,7 +58,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     // Number of reports that must match to consolidate a new rewards root (N/M)
     uint64 public quorum;
 
-    // Will be able to add/remove members of the oracle aswell of udpate the quorum
+    // Will be able to add/remove members of the oracle aswell of update the quorum
     address public governance;
 
     // Will be able to accept the governance
@@ -108,7 +108,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     event UnsubscribeValidator(address sender, uint64 validatorID);
 
     /**
-     * @dev Emitted when a hte smoothing pool is initialized
+     * @dev Emitted when a the smoothing pool is initialized
      */
     event InitSmoothingPool(uint64 initialSmoothingPoolSlot);
 
@@ -128,7 +128,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     event UpdateCheckpointSlotSize(uint64 newCheckpointSlotSize);
 
     /**
-     * @dev Emitted when the subscription collateral is udpated
+     * @dev Emitted when the subscription collateral is update
      */
     event UpdateSubscriptionCollateral(uint256 newSubscriptionCollateral);
 

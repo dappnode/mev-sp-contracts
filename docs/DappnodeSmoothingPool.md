@@ -341,7 +341,7 @@ Emitted when a validator unsubscribes
   )
 ```
 
-Emitted when a hte smoothing pool is initialized
+Emitted when a the smoothing pool is initialized
 
 ### UpdatePoolFee
 ```solidity
@@ -373,7 +373,7 @@ Emitted when the checkpoint slot size is updated
   )
 ```
 
-Emitted when the subscription collateral is udpated
+Emitted when the subscription collateral is update
 
 ### SubmitReport
 ```solidity
