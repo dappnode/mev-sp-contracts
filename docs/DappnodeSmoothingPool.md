@@ -10,7 +10,7 @@ Contract responsible to manage the subscriptions and rewards of the dappnode smo
     uint256 _poolFee,
     address _poolFeeRecipient,
     uint64 _checkpointSlotSize
-  ) public
+  ) external
 ```
 
 
@@ -38,7 +38,7 @@ Oracle will be able to differenciate between MEV rewards and donations and distr
 ```solidity
   function subscribeValidator(
     uint64 validatorID
-  ) public
+  ) external
 ```
 Subscribe a validator ID to the smoothing pool
 
@@ -54,7 +54,7 @@ Subscribe a validator ID to the smoothing pool
     address withdrawalAddress,
     uint256 accumulatedBalance,
     bytes32[] merkleProof
-  ) public
+  ) external
 ```
 Claim available rewards
 All the rewards that has the same withdrawal address and pool recipient are aggregated in the same leaf
@@ -71,7 +71,7 @@ All the rewards that has the same withdrawal address and pool recipient are aggr
 ```solidity
   function setRewardRecipient(
     address rewardAddress
-  ) public
+  ) external
 ```
 Allow a withdrawal address to set a reward recipient
 
@@ -85,7 +85,7 @@ Allow a withdrawal address to set a reward recipient
 ```solidity
   function unsubscribeValidator(
     uint64 validatorID
-  ) public
+  ) external
 ```
 Unsubscribe a validator ID from smoothing pool
 This call will only take effect in the oracle
@@ -102,7 +102,7 @@ if the msg.sender is the withdrawal address of that validator
   function submitReport(
     uint64 slotNumber,
     bytes32 proposedRewardsRoot
-  ) public
+  ) external
 ```
 Submit a report for a new rewards root
 If the quorum is reached, consolidate the rewards root
@@ -118,7 +118,7 @@ If the quorum is reached, consolidate the rewards root
 ```solidity
   function addOracleMember(
     address newOracleMember
-  ) public
+  ) external
 ```
 Add an oracle member
 Only the governance can call this function
@@ -134,7 +134,7 @@ Only the governance can call this function
   function removeOracleMember(
     address oracleMemberAddress,
     uint256 oracleMemberIndex
-  ) public
+  ) external
 ```
 Remove an oracle member
 Only the governance can call this function
@@ -150,7 +150,7 @@ Only the governance can call this function
 ```solidity
   function updateQuorum(
     uint64 newQuorum
-  ) public
+  ) external
 ```
 Update the quorum value
 Only the governance can call this function
@@ -161,26 +161,36 @@ Only the governance can call this function
 | :--- | :--- | :------------------------------------------------------------------- |
 |`newQuorum` | uint64 | new quorum
 
-### updateGovernance
+### transferGovernance
 ```solidity
-  function updateGovernance(
-    address newGovernance
-  ) public
+  function transferGovernance(
+    address newPendingGovernance
+  ) external
 ```
-Update governance address
+Starts the governance transfer
+This is a two step process, the pending governance must accepted to finalize the process
 Only the governance can call this function
 
 
 #### Parameters:
 | Name | Type | Description                                                          |
 | :--- | :--- | :------------------------------------------------------------------- |
-|`newGovernance` | address | new governance address
+|`newPendingGovernance` | address | new governance address
+
+### acceptGovernance
+```solidity
+  function acceptGovernance(
+  ) external
+```
+Allow the current pending governance to accept the governance
+
+
 
 ### initSmoothingPool
 ```solidity
   function initSmoothingPool(
     uint64 initialSmoothingPoolSlot
-  ) public
+  ) external
 ```
 Initialize smoothing pool
 Only the owner can call this function
@@ -195,7 +205,7 @@ Only the owner can call this function
 ```solidity
   function updatePoolFee(
     uint256 newPoolFee
-  ) public
+  ) external
 ```
 Update pool fee
 Only the owner can call this function
@@ -210,7 +220,7 @@ Only the owner can call this function
 ```solidity
   function updatePoolFeeRecipient(
     address newPoolFeeRecipient
-  ) public
+  ) external
 ```
 Update the pool fee recipient
 Only the owner can call this function
@@ -225,7 +235,7 @@ Only the owner can call this function
 ```solidity
   function updateCheckpointSlotSize(
     uint64 newCheckpointSlotSize
-  ) public
+  ) external
 ```
 Update the checkpoint slot size
 Only the owner can call this function
@@ -240,7 +250,7 @@ Only the owner can call this function
 ```solidity
   function updateCollateral(
     uint256 newSubscriptionCollateral
-  ) public
+  ) external
 ```
 Update the collateral needed to subscribe a validator
 Only the owner can call this function
@@ -255,7 +265,7 @@ Only the owner can call this function
 ```solidity
   function getOracleMemberIndex(
     address oracleMember
-  ) public returns (uint256)
+  ) external returns (uint256)
 ```
 Return oracle member index
 
@@ -268,7 +278,7 @@ Return oracle member index
 ### getAllOracleMembers
 ```solidity
   function getAllOracleMembers(
-  ) public returns (address[])
+  ) external returns (address[])
 ```
 Return all the oracle members
 
@@ -277,7 +287,7 @@ Return all the oracle members
 ### getOracleMembersCount
 ```solidity
   function getOracleMembersCount(
-  ) public returns (uint256)
+  ) external returns (uint256)
 ```
 Return oracle members count
 
@@ -420,11 +430,19 @@ Emitted when a new oracle member is added
 
 Emitted when a new oracle member is removed
 
-### UpdateGovernance
+### TransferGovernance
 ```solidity
-  event UpdateGovernance(
+  event TransferGovernance(
   )
 ```
 
-Emitted when the new governance is updated
+Emitted when the governance starts the two-step transfer setting a new pending governance
+
+### AcceptGovernance
+```solidity
+  event AcceptGovernance(
+  )
+```
+
+Emitted when the pending governance accepts the governance
 

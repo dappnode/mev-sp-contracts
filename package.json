@@ -39,7 +39,6 @@
     "upgrade:goerli": "npx hardhat run upgrade/simpleUpgrade.js --network goerli",
     "coverage": "npx hardhat coverage",
     "gas:report": "REPORT_GAS=true npx hardhat test",
-    "gas:report:file": "REPORT_GAS=true REPORT_GAS_FILE=true npx hardhat test",
-    "docgen": "npx solidity-docgen --solc-module solc-0.8 -t ./docs/templates"
+    "gas:report:file": "REPORT_GAS=true REPORT_GAS_FILE=true npx hardhat test"
   }
 }

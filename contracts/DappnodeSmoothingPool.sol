@@ -61,7 +61,8 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     // Will be able to add/remove members of the oracle aswell of udpate the quorum
     address public governance;
 
-    // TODO pending governance?
+    // Will be able to accept the governance
+    address public pendingGovernance;
 
     // Oracle member address --> current voted reportHash
     // reportHash: keccak256(abi.encodePacked(slot, rewardsRoot))
@@ -161,9 +162,14 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     event RemoveOracleMember(address oracleMemberRemoved);
 
     /**
-     * @dev Emitted when the new governance is updated
+     * @dev Emitted when the governance starts the two-step transfer setting a new pending governance
      */
-    event UpdateGovernance(address newGovernance);
+    event TransferGovernance(address newPendingGovernance);
+
+    /**
+     * @dev Emitted when the pending governance accepts the governance
+     */
+    event AcceptGovernance(address newGovernance);
 
     /**
      * @param _governance Governance address
@@ -179,7 +185,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         address _poolFeeRecipient,
         uint64 _checkpointSlotSize,
         uint64 _quorum
-    ) public initializer {
+    ) external initializer {
         // Initialize requires
         require(
             _poolFee <= 10000,
@@ -239,7 +245,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      * @notice Subscribe a validator ID to the smoothing pool
      * @param validatorID Validator ID
      */
-    function subscribeValidator(uint64 validatorID) public payable {
+    function subscribeValidator(uint64 validatorID) external payable {
         // Check collateral
         require(
             msg.value == subscriptionCollateral,
@@ -264,7 +270,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         address withdrawalAddress,
         uint256 accumulatedBalance,
         bytes32[] memory merkleProof
-    ) public {
+    ) external {
         // Verify the merkle proof
         bytes32 node = keccak256(
             abi.encodePacked(withdrawalAddress, accumulatedBalance)
@@ -304,7 +310,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      * @notice Allow a withdrawal address to set a reward recipient
      * @param rewardAddress Reward recipient
      */
-    function setRewardRecipient(address rewardAddress) public {
+    function setRewardRecipient(address rewardAddress) external {
         rewardRecipient[msg.sender] = rewardAddress;
         emit SetRewardRecipient(msg.sender, rewardAddress);
     }
@@ -315,7 +321,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      * if the msg.sender is the withdrawal address of that validator
      * @param validatorID Validator ID
      */
-    function unsubscribeValidator(uint64 validatorID) public {
+    function unsubscribeValidator(uint64 validatorID) external {
         emit UnsubscribeValidator(msg.sender, validatorID);
     }
 
@@ -332,7 +338,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     function submitReport(
         uint64 slotNumber,
         bytes32 proposedRewardsRoot
-    ) public {
+    ) external {
         // Check that the report contains the correct slot number
         uint64 cacheLastConsolidatedSlot = lastConsolidatedSlot;
 
@@ -415,7 +421,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      * Only the governance can call this function
      * @param newOracleMember Address of the new oracle member
      */
-    function addOracleMember(address newOracleMember) public onlyGovernance {
+    function addOracleMember(address newOracleMember) external onlyGovernance {
         require(
             addressToVotedReportHash[newOracleMember] == bytes32(0),
             "DappnodeSmoothingPool::addOracleMember: Already oracle member"
@@ -439,7 +445,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     function removeOracleMember(
         address oracleMemberAddress,
         uint256 oracleMemberIndex
-    ) public onlyGovernance {
+    ) external onlyGovernance {
         bytes32 lastVotedReportHash = addressToVotedReportHash[
             oracleMemberAddress
         ];
@@ -484,7 +490,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      * Only the governance can call this function
      * @param newQuorum new quorum
      */
-    function updateQuorum(uint64 newQuorum) public onlyGovernance {
+    function updateQuorum(uint64 newQuorum) external onlyGovernance {
         require(
             newQuorum != 0,
             "DappnodeSmoothingPool::updateQuorum: Quorum cannot be 0"
@@ -494,13 +500,29 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     }
 
     /**
-     * @notice Update governance address
+     * @notice Starts the governance transfer
+     * This is a two step process, the pending governance must accepted to finalize the process
      * Only the governance can call this function
-     * @param newGovernance new governance address
+     * @param newPendingGovernance new governance address
      */
-    function updateGovernance(address newGovernance) public onlyGovernance {
-        governance = newGovernance;
-        emit UpdateGovernance(newGovernance);
+    function transferGovernance(
+        address newPendingGovernance
+    ) external onlyGovernance {
+        pendingGovernance = newPendingGovernance;
+        emit TransferGovernance(newPendingGovernance);
+    }
+
+    /**
+     * @notice Allow the current pending governance to accept the governance
+     */
+    function acceptGovernance() external {
+        require(
+            pendingGovernance == msg.sender,
+            "DappnodeSmoothingPool::acceptGovernance: Only pending governance"
+        );
+
+        governance = pendingGovernance;
+        emit AcceptGovernance(pendingGovernance);
     }
 
     ///////////////////
@@ -514,7 +536,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      */
     function initSmoothingPool(
         uint64 initialSmoothingPoolSlot
-    ) public onlyOwner {
+    ) external onlyOwner {
         // Smoothing pool must not have been initialized
         require(
             lastConsolidatedSlot == 0,
@@ -536,7 +558,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      * Only the owner can call this function
      * @param newPoolFee new pool fee
      */
-    function updatePoolFee(uint256 newPoolFee) public onlyOwner {
+    function updatePoolFee(uint256 newPoolFee) external onlyOwner {
         require(
             newPoolFee <= 10000,
             "DappnodeSmoothingPool::updatePoolFee: Pool fee cannot be greater than 100%"
@@ -552,7 +574,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      */
     function updatePoolFeeRecipient(
         address newPoolFeeRecipient
-    ) public onlyOwner {
+    ) external onlyOwner {
         poolFeeRecipient = newPoolFeeRecipient;
         emit UpdatePoolFeeRecipient(newPoolFeeRecipient);
     }
@@ -564,7 +586,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      */
     function updateCheckpointSlotSize(
         uint64 newCheckpointSlotSize
-    ) public onlyOwner {
+    ) external onlyOwner {
         checkpointSlotSize = newCheckpointSlotSize;
         emit UpdateCheckpointSlotSize(newCheckpointSlotSize);
     }
@@ -576,7 +598,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      */
     function updateCollateral(
         uint256 newSubscriptionCollateral
-    ) public onlyOwner {
+    ) external onlyOwner {
         subscriptionCollateral = newSubscriptionCollateral;
         emit UpdateSubscriptionCollateral(newSubscriptionCollateral);
     }
@@ -591,7 +613,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      */
     function getOracleMemberIndex(
         address oracleMember
-    ) public view returns (uint256) {
+    ) external view returns (uint256) {
         for (uint256 i = 0; i < oracleMembers.length; ++i) {
             if (oracleMembers[i] == oracleMember) {
                 return i;
@@ -607,14 +629,14 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     /**
      * @notice Return all the oracle members
      */
-    function getAllOracleMembers() public view returns (address[] memory) {
+    function getAllOracleMembers() external view returns (address[] memory) {
         return oracleMembers;
     }
 
     /**
      * @notice Return oracle members count
      */
-    function getOracleMembersCount() public view returns (uint256) {
+    function getOracleMembersCount() external view returns (uint256) {
         return oracleMembers.length;
     }
 

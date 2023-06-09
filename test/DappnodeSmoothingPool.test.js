@@ -200,12 +200,24 @@ describe('DappnodeSmoothingPool test', () => {
 
         // Update Governance
         expect(await dappnodeSmoothingPool.governance()).to.be.equal(governance.address);
-        await expect(dappnodeSmoothingPool.connect(deployer).updateGovernance(deployer.address))
+        await expect(dappnodeSmoothingPool.connect(deployer).transferGovernance(deployer.address))
             .to.be.revertedWith('DappnodeSmoothingPool::onlyGovernance: Only governance');
 
-        await expect(dappnodeSmoothingPool.connect(governance).updateGovernance(deployer.address))
-            .to.emit(dappnodeSmoothingPool, 'UpdateGovernance')
+        expect(await dappnodeSmoothingPool.pendingGovernance()).to.be.equal(ethers.constants.AddressZero);
+        await expect(dappnodeSmoothingPool.connect(governance).transferGovernance(deployer.address))
+            .to.emit(dappnodeSmoothingPool, 'TransferGovernance')
             .withArgs(deployer.address);
+
+        expect(await dappnodeSmoothingPool.governance()).to.be.equal(governance.address);
+        expect(await dappnodeSmoothingPool.pendingGovernance()).to.be.equal(deployer.address);
+
+        await expect(dappnodeSmoothingPool.connect(governance).acceptGovernance())
+            .to.be.revertedWith('DappnodeSmoothingPool::acceptGovernance: Only pending governance');
+
+        await expect(dappnodeSmoothingPool.connect(deployer).acceptGovernance())
+            .to.emit(dappnodeSmoothingPool, 'AcceptGovernance')
+            .withArgs(deployer.address);
+
         expect(await dappnodeSmoothingPool.governance()).to.be.equal(deployer.address);
     });
 
