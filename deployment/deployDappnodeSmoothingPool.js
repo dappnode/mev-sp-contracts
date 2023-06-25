@@ -33,7 +33,7 @@ async function main() {
     /*
      * Deploy dappnode smoothing pool
      */
-    const dappnodeSmoothingPoolFactory = await ethers.getContractFactory('DappnodeSmoothingPool');
+    const dappnodeSmoothingPoolFactory = await ethers.getContractFactory('DappnodeSmoothingPool', deployer);
     let dappnodeSmoothingPool;
     for (let i = 0; i < atemptsDeployProxy; i++) {
         try {
