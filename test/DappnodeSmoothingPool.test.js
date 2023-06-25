@@ -222,6 +222,21 @@ describe('DappnodeSmoothingPool test', () => {
     });
 
     it('should check owner methods', async () => {
+        // init smoothing pol
+        const initSlot = 1;
+        expect(await dappnodeSmoothingPool.lastConsolidatedSlot()).to.be.equal(0);
+        await expect(dappnodeSmoothingPool.connect(governance).initSmoothingPool(initSlot))
+            .to.be.revertedWith('Ownable: caller is not the owner');
+
+        await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(0))
+            .to.be.revertedWith('DappnodeSmoothingPool::initSmoothingPool: Cannot initialize to slot 0');
+
+        await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(initSlot))
+            .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
+            .withArgs(initSlot);
+
+        await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(2))
+            .to.be.revertedWith('DappnodeSmoothingPool::initSmoothingPool: Smoothing pool already initialized');
         // Check update oracle
         expect(await dappnodeSmoothingPool.owner()).to.be.equal(deployer.address);
         expect(await dappnodeSmoothingPool.subscriptionCollateral()).to.be.equal(subscriptionCollateral);
@@ -280,7 +295,7 @@ describe('DappnodeSmoothingPool test', () => {
         const leafsRewards = valuesRewards.map((rewardLeaf) => ethers.utils.solidityKeccak256(['address', 'uint256'], rewardLeaf));
         const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true, duplicateOdd: true });
 
-        const slotNumber = checkpointSlotSize * 2 + 1;
+        const slotNumber = checkpointSlotSize * 2;
 
         // current quorum is 1
         await expect(dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address))
@@ -288,10 +303,18 @@ describe('DappnodeSmoothingPool test', () => {
             .withArgs(oracleMember1.address);
 
         await expect(dappnodeSmoothingPool.connect(governance).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
+            .to.be.revertedWith('DappnodeSmoothingPool::submitReport: Smoothing pool not initialized');
+
+        // Initialize smoorhing pool
+        await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(checkpointSlotSize))
+            .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
+            .withArgs(checkpointSlotSize);
+
+        await expect(dappnodeSmoothingPool.connect(governance).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
             .to.be.revertedWith('DappnodeSmoothingPool::submitReport: Not a oracle member');
 
         await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(0, rewardsMerkleTree.getHexRoot()))
-            .to.be.revertedWith('DappnodeSmoothingPool::submitReport: Initial slotNumber cannot be 0');
+            .to.be.revertedWith('DappnodeSmoothingPool::submitReport: Slot number invalid');
 
         await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
             .to.emit(dappnodeSmoothingPool, 'SubmitReport')
@@ -314,6 +337,11 @@ describe('DappnodeSmoothingPool test', () => {
         const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true, duplicateOdd: true });
 
         const slotNumber = checkpointSlotSize * 2;
+
+        // Initialize smoorhing pool
+        await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(checkpointSlotSize))
+            .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
+            .withArgs(checkpointSlotSize);
 
         // set quorum and oracle members:
         const newQuorum = 2;
@@ -418,6 +446,11 @@ describe('DappnodeSmoothingPool test', () => {
         const rewardsMerkleTree = new MerkleTree(leafsRewards, ethers.utils.keccak256, { sortPairs: true, duplicateOdd: true });
 
         const slotNumber = checkpointSlotSize * 2;
+
+        // Initialize smoorhing pool
+        await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(checkpointSlotSize))
+            .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
+            .withArgs(checkpointSlotSize);
 
         // set quorum and oracle members:
         const newQuorum = 2;
@@ -529,6 +562,11 @@ describe('DappnodeSmoothingPool test', () => {
 
         const slotNumber = checkpointSlotSize * 2;
 
+        // Initialize smoorhing pool
+        await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(checkpointSlotSize))
+            .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
+            .withArgs(checkpointSlotSize);
+
         // current quorum is 1
         await dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address);
         await expect(dappnodeSmoothingPool.connect(oracleMember1).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
@@ -612,6 +650,11 @@ describe('DappnodeSmoothingPool test', () => {
 
         // Update rewards root
         const slotNumber = checkpointSlotSize * 2;
+
+        // Initialize smoorhing pool
+        await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(checkpointSlotSize))
+            .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
+            .withArgs(checkpointSlotSize);
 
         // current quorum is 1
         await dappnodeSmoothingPool.connect(governance).addOracleMember(oracleMember1.address);

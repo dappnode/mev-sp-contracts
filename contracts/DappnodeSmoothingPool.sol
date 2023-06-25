@@ -342,18 +342,15 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         // Check that the report contains the correct slot number
         uint64 cacheLastConsolidatedSlot = lastConsolidatedSlot;
 
-        // On the first report don't apply the checkpointSlotSize restriction
-        if (cacheLastConsolidatedSlot != 0) {
-            require(
-                slotNumber == cacheLastConsolidatedSlot + checkpointSlotSize,
-                "DappnodeSmoothingPool::submitReport: Slot number invalid"
-            );
-        } else {
-            require(
-                slotNumber != 0,
-                "DappnodeSmoothingPool::submitReport: Initial slotNumber cannot be 0"
-            );
-        }
+        require(
+            cacheLastConsolidatedSlot != 0,
+            "DappnodeSmoothingPool::submitReport: Smoothing pool not initialized"
+        );
+
+        require(
+            slotNumber == cacheLastConsolidatedSlot + checkpointSlotSize,
+            "DappnodeSmoothingPool::submitReport: Slot number invalid"
+        );
 
         // Check the last voted report
         bytes32 lastVotedReportHash = addressToVotedReportHash[msg.sender];
@@ -370,9 +367,14 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
                 lastVotedReportHash
             ];
 
-            // If this member already voted for this slot substract a vote from that report
-            if (lastVotedReport.slot == slotNumber) {
-                lastVotedReport.votes--;
+            // Substract a vote on the last voted report
+            // That report could have 0 votes because:
+            // - The report was already consolidated
+            // - Were substracted all the votes from that report
+            if (lastVotedReport.votes > 0) {
+                unchecked {
+                    lastVotedReport.votes--;
+                }
             }
         }
 
@@ -472,7 +474,9 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
             // Substract a vote of this oracle member
             // If the votes == 0, that report was already consolidated
             if (lastVotedReport.votes > 0) {
-                lastVotedReport.votes--;
+                unchecked {
+                    lastVotedReport.votes--;
+                }
             }
         }
 
@@ -531,6 +535,30 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     ///////////////////
     // Owner functions
     ///////////////////
+
+    /**
+     * @notice Initialize smoothing pool
+     * Only the owner can call this function
+     * @param initialSmoothingPoolSlot Initial smoothing pool slot
+     */
+    function initSmoothingPool(
+        uint64 initialSmoothingPoolSlot
+    ) external onlyOwner {
+        // Smoothing pool must not have been initialized
+        require(
+            lastConsolidatedSlot == 0,
+            "DappnodeSmoothingPool::initSmoothingPool: Smoothing pool already initialized"
+        );
+
+        // Cannot initialize smoothing pool to slot 0
+        require(
+            initialSmoothingPoolSlot != 0,
+            "DappnodeSmoothingPool::initSmoothingPool: Cannot initialize to slot 0"
+        );
+
+        lastConsolidatedSlot = initialSmoothingPoolSlot;
+        emit InitSmoothingPool(initialSmoothingPoolSlot);
+    }
 
     /**
      * @notice Update pool fee
