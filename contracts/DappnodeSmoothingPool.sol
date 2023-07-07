@@ -242,6 +242,30 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     ///////////////////////
 
     /**
+     * @notice Subscribe multiple validators to the smoothing pool
+     * The function won't check if there are duplicated validatorIDs
+     * @param validatorIDArray Validator ID array
+     */
+    function subscribeValidators(
+        uint64[] calldata validatorIDArray
+    ) external payable {
+        // Check collateral
+        require(
+            msg.value == subscriptionCollateral * validatorIDArray.length,
+            "DappnodeSmoothingPool::subscribeValidator: msg.value does not equal subscription collateral"
+        );
+
+        // Emit a single event for every validator ID subscribed
+        for (uint256 i = 0; i < validatorIDArray.length; i++) {
+            emit SubscribeValidator(
+                msg.sender,
+                subscriptionCollateral,
+                validatorIDArray[i]
+            );
+        }
+    }
+
+    /**
      * @notice Subscribe a validator ID to the smoothing pool
      * @param validatorID Validator ID
      */

@@ -68,6 +68,26 @@ describe('DappnodeSmoothingPool test', () => {
         await expect(smoothingTestContractInit.initialize(
             governance.address,
             subscriptionCollateral,
+            10001, // pool fee
+            deployer.address, // pool fee recipient
+            checkpointSlotSize,
+            quorum,
+        ))
+            .to.be.revertedWith('DappnodeSmoothingPool::initialize: Pool fee cannot be greater than 100%');
+
+        await expect(smoothingTestContractInit.initialize(
+            governance.address,
+            subscriptionCollateral,
+            poolFee,
+            deployer.address, // pool fee recipient
+            checkpointSlotSize,
+            0, // quorum
+        ))
+            .to.be.revertedWith('DappnodeSmoothingPool::initialize: Quorum cannot be 0');
+
+        await expect(smoothingTestContractInit.initialize(
+            governance.address,
+            subscriptionCollateral,
             poolFee,
             deployer.address, // pool fee recipient
             checkpointSlotSize,
@@ -118,6 +138,38 @@ describe('DappnodeSmoothingPool test', () => {
         await expect(dappnodeSmoothingPool.unsubscribeValidator(validatorID))
             .to.emit(dappnodeSmoothingPool, 'UnsubscribeValidator')
             .withArgs(deployer.address, validatorID);
+    });
+
+    it('Should suscribe multiple validators', async () => {
+        const validatorID = 1;
+        const validatorID2 = 10;
+        const validatorID3 = 12;
+
+        // Check subscribeValidator
+        await expect(dappnodeSmoothingPool.subscribeValidators([validatorID, validatorID2, validatorID3]))
+            .to.be.revertedWith('DappnodeSmoothingPool::subscribeValidator: msg.value does not equal subscription collateral');
+
+        await expect(dappnodeSmoothingPool.subscribeValidators(
+            [validatorID, validatorID2, validatorID3],
+            { value: subscriptionCollateral.mul(2) },
+        ))
+            .to.be.revertedWith('DappnodeSmoothingPool::subscribeValidator: msg.value does not equal subscription collateral');
+
+        const initialSmoothingPoolEther = await ethers.provider.getBalance(dappnodeSmoothingPool.address);
+
+        await expect(dappnodeSmoothingPool.subscribeValidators(
+            [validatorID, validatorID2, validatorID3],
+            { value: subscriptionCollateral.mul(3) },
+        ))
+            .to.emit(dappnodeSmoothingPool, 'SubscribeValidator')
+            .withArgs(deployer.address, subscriptionCollateral, validatorID)
+            .to.emit(dappnodeSmoothingPool, 'SubscribeValidator')
+            .withArgs(deployer.address, subscriptionCollateral, validatorID2)
+            .to.emit(dappnodeSmoothingPool, 'SubscribeValidator')
+            .withArgs(deployer.address, subscriptionCollateral, validatorID3);
+
+        expect(await ethers.provider.getBalance(dappnodeSmoothingPool.address))
+            .to.be.equal(initialSmoothingPoolEther.add(subscriptionCollateral.mul(3)));
     });
 
     it('should check governance methods', async () => {
