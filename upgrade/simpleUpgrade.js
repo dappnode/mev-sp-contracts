@@ -10,7 +10,7 @@ async function main() {
     let currentProvider = ethers.provider;
     if (upgradeParameters.multiplierGas) {
         if (process.env.HARDHAT_NETWORK !== 'hardhat') {
-            const multiplierGas = upgradeParameters.multiplierGas;
+            const { multiplierGas } = upgradeParameters;
             currentProvider = new ethers.providers.JsonRpcProvider(`https://${process.env.HARDHAT_NETWORK}.infura.io/v3/${process.env.INFURA_PROJECT_ID}`);
             async function overrideFeeData() {
                 const feedata = await ethers.provider.getFeeData();
@@ -25,10 +25,10 @@ async function main() {
     let deployer;
     if (process.env.PVTK_DEPLOYMENT) {
         deployer = new ethers.Wallet(upgradeParameters.deployerPvtKey, currentProvider);
-        console.log("using pvtkey:", deployer.address)
+        console.log('using pvtkey:', deployer.address);
     } else if (process.env.MNEMONIC) {
         deployer = ethers.Wallet.fromMnemonic(process.env.MNEMONIC, 'm/44\'/60\'/0\'/0/0').connect(currentProvider);
-        console.log("using mnemonic:", deployer.address)
+        console.log('using mnemonic:', deployer.address);
     } else {
         [deployer] = (await ethers.getSigners());
     }
@@ -41,28 +41,31 @@ async function main() {
         const contractFactory = await ethers.getContractFactory(upgrade.contractName, deployer);
 
         if (upgrade.constructorArgs) {
-            const txUpgrade = await upgrades.upgradeProxy(proxyAddress, contractFactory,
+            const txUpgrade = await upgrades.upgradeProxy(
+                proxyAddress,
+                contractFactory,
                 {
                     constructorArgs: upgrade.constructorArgs,
                     unsafeAllow: ['constructor', 'state-variable-immutable'],
-                    call: { fn: upgrade.callAfterUpgrade.functionName, args: upgrade.callAfterUpgrade.arguments }
-                });
+                    call: { fn: upgrade.callAfterUpgrade.functionName, args: upgrade.callAfterUpgrade.arguments },
+                },
+            );
 
             console.log(txUpgrade.deployTransaction);
             console.log(await txUpgrade.deployTransaction.wait());
             console.log('upgrade succesfull', upgrade.contractName);
 
             console.log(txUpgrade.address);
-            console.log("you can verify the new impl address with:")
+            console.log('you can verify the new impl address with:');
             console.log(`npx hardhat verify --constructor-args upgrade/arguments.js ${txUpgrade.address} --network ${process.env.HARDHAT_NETWORK}\n`);
-            console.log("Copy the following constructor arguments on: upgrade/arguments.js \n", upgrade.constructorArgs)
+            console.log('Copy the following constructor arguments on: upgrade/arguments.js \n', upgrade.constructorArgs);
         } else {
             const txUpgrade = await upgrades.upgradeProxy(proxyAddress, contractFactory, {
-                unsafeAllowRenames: false
-            })
+                unsafeAllowRenames: false,
+            });
 
             console.log(txUpgrade.address);
-            console.log("you can verify the new impl address with:")
+            console.log('you can verify the new impl address with:');
             console.log(`npx hardhat verify ${txUpgrade.address} --network ${process.env.HARDHAT_NETWORK}`);
         }
     }

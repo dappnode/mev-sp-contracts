@@ -23,27 +23,29 @@ async function main() {
     }
 
     // Deploy parameters
-    const oracleAddress = deployer.address;
+    const governanceAddress = deployer.address;
     const subscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther('0.08'));
     const poolFee = 1000;
     const feeRecipient = '0xE46F9bE81f9a3ACA1808Bb8c36D353436bb96091';
     const checkPointSlotSize = 7200;
+    const quorum = 1;
 
     /*
      * Deploy dappnode smoothing pool
      */
-    const dappnodeSmoothingPoolFactory = await ethers.getContractFactory('DappnodeSmoothingPool');
+    const dappnodeSmoothingPoolFactory = await ethers.getContractFactory('DappnodeSmoothingPool', deployer);
     let dappnodeSmoothingPool;
     for (let i = 0; i < atemptsDeployProxy; i++) {
         try {
             dappnodeSmoothingPool = await upgrades.deployProxy(
                 dappnodeSmoothingPoolFactory,
                 [
-                    oracleAddress,
+                    governanceAddress,
                     subscriptionCollateral,
                     poolFee,
                     feeRecipient,
                     checkPointSlotSize,
+                    quorum,
                 ],
             );
             break;
@@ -57,7 +59,6 @@ async function main() {
     console.log('##### Deployment dappnodeSmoothingPool #####');
     console.log('#######################');
     console.log('deployer:', deployer.address);
-    console.log('oracleAddress:', oracleAddress);
 
     console.log('#######################\n');
     console.log('dappnodeSmoothingPool deployed to:', dappnodeSmoothingPool.address);
@@ -66,7 +67,12 @@ async function main() {
     console.log('#####    Checks    #####');
     console.log('#######################');
     console.log('subscriptionCollateral:', await dappnodeSmoothingPool.subscriptionCollateral());
-    console.log('oracleAddress:', await dappnodeSmoothingPool.oracle());
+    console.log('governanceAddress:', await dappnodeSmoothingPool.governance());
+    console.log('owner:', await dappnodeSmoothingPool.owner());
+    console.log('poolFee:', await dappnodeSmoothingPool.poolFee());
+    console.log('poolFeeRecipient:', await dappnodeSmoothingPool.poolFeeRecipient());
+    console.log('checkpointSlotSize:', await dappnodeSmoothingPool.checkpointSlotSize());
+    console.log('quorum:', await dappnodeSmoothingPool.quorum());
 
     const outputJson = {
         dappnodeSmoothingPool: dappnodeSmoothingPool.address,
