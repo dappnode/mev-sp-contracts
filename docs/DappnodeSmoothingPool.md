@@ -34,6 +34,21 @@ Oracle will be able to differenciate between MEV rewards and donations and distr
 
 
 
+### subscribeValidators
+```solidity
+  function subscribeValidators(
+    uint64[] validatorIDArray
+  ) external
+```
+Subscribe multiple validators to the smoothing pool
+The function won't check if there are duplicated validatorIDs
+
+
+#### Parameters:
+| Name | Type | Description                                                          |
+| :--- | :--- | :------------------------------------------------------------------- |
+|`validatorIDArray` | uint64[] | Validator ID array
+
 ### subscribeValidator
 ```solidity
   function subscribeValidator(
@@ -185,6 +200,21 @@ Only the governance can call this function
 Allow the current pending governance to accept the governance
 
 
+
+### initSmoothingPool
+```solidity
+  function initSmoothingPool(
+    uint64 initialSmoothingPoolSlot
+  ) external
+```
+Initialize smoothing pool
+Only the owner can call this function
+
+
+#### Parameters:
+| Name | Type | Description                                                          |
+| :--- | :--- | :------------------------------------------------------------------- |
+|`initialSmoothingPoolSlot` | uint64 | Initial smoothing pool slot
 
 ### updatePoolFee
 ```solidity
