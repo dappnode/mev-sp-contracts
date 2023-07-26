@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity 0.8.17;
 
-import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {MerkleProofUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * Contract responsible to manage the subscriptions and rewards of the dappnode smoothing pool
@@ -36,7 +36,8 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     // withdrawalAddress --> rewardAddress
     mapping(address => address) public rewardRecipient;
 
-    // The above parameters are used to synch information on the oracle
+    // The following parameters are used only to synch information on the oracle
+    // And do not have any direct effect on the smart contract functions
 
     // Smoothing pool fee expressed in % with 2 decimals
     uint256 public poolFee;
@@ -47,7 +48,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     // Indicates the deployment block number
     uint256 public deploymentBlockNumber;
 
-    // The above parameters are relative to the oracle
+    // The following parameters are relative to the oracle functions
 
     // Indicates the last consolidated slot
     uint64 public lastConsolidatedSlot;
@@ -58,7 +59,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     // Number of reports that must match to consolidate a new rewards root (N/M)
     uint64 public quorum;
 
-    // Will be able to add/remove members of the oracle aswell of update the quorum
+    // Will be able to add/remove members of the oracle and update the quorum
     address public governance;
 
     // Will be able to accept the governance
@@ -71,7 +72,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     // reportHash --> Report(slot | votes)
     mapping(bytes32 => Report) public reportHashToReport;
 
-    // Above parameters are just used to handly get the current oracle information
+    // This array is used only to easily get the current oracle members information
     address[] public oracleMembers;
 
     /**
@@ -256,12 +257,16 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         );
 
         // Emit a single event for every validator ID subscribed
-        for (uint256 i = 0; i < validatorIDArray.length; i++) {
+        for (uint256 i = 0; i < validatorIDArray.length; ) {
             emit SubscribeValidator(
                 msg.sender,
                 subscriptionCollateral,
                 validatorIDArray[i]
             );
+
+            unchecked {
+                i += 1;
+            }
         }
     }
 
