@@ -11,7 +11,7 @@ describe('DappnodeSmoothingPool test', () => {
     let governance;
     let validator1; let validator2; let
         rewardRecipientValidator2; let donator; let oracleMember1; let
-            oracleMember2;
+        oracleMember2;
 
     let dappnodeSmoothingPool;
 
@@ -100,6 +100,15 @@ describe('DappnodeSmoothingPool test', () => {
             .withArgs(checkpointSlotSize)
             .to.emit(smoothingTestContractInit, 'UpdateQuorum')
             .withArgs(quorum);
+
+        await expect(smoothingTestContractInit.initialize(
+            governance.address,
+            subscriptionCollateral,
+            poolFee,
+            deployer.address, // pool fee recipient
+            checkpointSlotSize,
+            quorum,
+        )).to.be.revertedWith('Initializable: contract is already initialized');
     });
 
     it('should check the fallback function', async () => {

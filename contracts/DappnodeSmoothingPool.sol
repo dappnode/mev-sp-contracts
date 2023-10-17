@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.8.17;
+pragma solidity 0.8.21;
 
 import {MerkleProofUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -430,7 +430,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         emit SubmitReport(slotNumber, proposedRewardsRoot, msg.sender);
 
         // Check if it reaches the quorum
-        if (currentVotedReport.votes == quorum) {
+        if (currentVotedReport.votes >= quorum) {
             delete reportHashToReport[currentReportHash];
 
             // Consolidate report
