@@ -8,3 +8,6 @@ The dappnode **mev smoothing pool** is made of three repositories:
 
 # Future License
 Smooth was developed by Dappnode. While we plan to adopt an open source license, we haven't selected one yet, so all rights are reserved for the time being. Please reach out to us if you have thoughts on licensing.
+
+# Legal Disclaimer
+[Terms Of Service](https://github.com/dappnode/mev-sp-contracts/blob/main/TERMS_OF_SERVICE.md)
