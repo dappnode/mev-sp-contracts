@@ -125,7 +125,7 @@ describe('DappnodeSmoothingPool test', () => {
         })).to.emit(dappnodeSmoothingPool, 'EtherReceived').withArgs(donator.address, donationValue);
     });
 
-    it('Should suscribe validator and unsubscribe', async () => {
+    it('Should subscribe validator and unsubscribe', async () => {
         const validatorID = 1;
 
         // Check subscribeValidator
@@ -149,7 +149,7 @@ describe('DappnodeSmoothingPool test', () => {
             .withArgs(deployer.address, validatorID);
     });
 
-    it('Should suscribe multiple validators', async () => {
+    it('Should subscribe multiple validators', async () => {
         const validatorID = 1;
         const validatorID2 = 10;
         const validatorID3 = 12;
@@ -366,7 +366,7 @@ describe('DappnodeSmoothingPool test', () => {
         await expect(dappnodeSmoothingPool.connect(governance).submitReport(slotNumber, rewardsMerkleTree.getHexRoot()))
             .to.be.revertedWith('DappnodeSmoothingPool::submitReport: Smoothing pool not initialized');
 
-        // Initialize smoorhing pool
+        // Initialize smoothing pool
         await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(checkpointSlotSize))
             .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
             .withArgs(checkpointSlotSize);
@@ -399,7 +399,7 @@ describe('DappnodeSmoothingPool test', () => {
 
         const slotNumber = checkpointSlotSize * 2;
 
-        // Initialize smoorhing pool
+        // Initialize smoothing pool
         await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(checkpointSlotSize))
             .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
             .withArgs(checkpointSlotSize);
@@ -508,7 +508,7 @@ describe('DappnodeSmoothingPool test', () => {
 
         const slotNumber = checkpointSlotSize * 2;
 
-        // Initialize smoorhing pool
+        // Initialize smoothing pool
         await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(checkpointSlotSize))
             .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
             .withArgs(checkpointSlotSize);
@@ -593,7 +593,7 @@ describe('DappnodeSmoothingPool test', () => {
         expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember1.address))
             .to.be.equal(newVotedReportHash);
 
-        // Didint change since it onyl vote once and consolidates the state
+        // Didn't change since it only vote once and consolidates the state
         expect(await dappnodeSmoothingPool.addressToVotedReportHash(oracleMember2.address))
             .to.be.equal(await dappnodeSmoothingPool.INITIAL_REPORT_HASH());
 
@@ -623,7 +623,7 @@ describe('DappnodeSmoothingPool test', () => {
 
         const slotNumber = checkpointSlotSize * 2;
 
-        // Initialize smoorhing pool
+        // Initialize smoothing pool
         await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(checkpointSlotSize))
             .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
             .withArgs(checkpointSlotSize);
@@ -712,7 +712,7 @@ describe('DappnodeSmoothingPool test', () => {
         // Update rewards root
         const slotNumber = checkpointSlotSize * 2;
 
-        // Initialize smoorhing pool
+        // Initialize smoothing pool
         await expect(dappnodeSmoothingPool.connect(deployer).initSmoothingPool(checkpointSlotSize))
             .to.emit(dappnodeSmoothingPool, 'InitSmoothingPool')
             .withArgs(checkpointSlotSize);
