@@ -317,7 +317,7 @@ describe('DappnodeSmoothingPool test', () => {
             .to.be.revertedWith('Ownable: caller is not the owner');
 
         await expect(dappnodeSmoothingPool.connect(deployer).updatePoolFee(10001))
-            .to.be.revertedWith('Pool fee cannot be greater than 100%');
+            .to.be.revertedWith('DappnodeSmoothingPool::updatePoolFee: Pool fee cannot be greater than 100%');
 
         await expect(dappnodeSmoothingPool.connect(deployer).updatePoolFee(newPoolFee))
             .to.emit(dappnodeSmoothingPool, 'UpdatePoolFee')
