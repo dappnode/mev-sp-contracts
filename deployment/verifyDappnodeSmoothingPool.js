@@ -15,6 +15,23 @@ async function main() {
     } catch (error) {
         expect(error.message.toLowerCase().includes('already verified')).to.be.equal(true);
     }
+
+    const minDelayTimelock = 3600;
+    const timelockAdminAddress = "0xE46F9bE81f9a3ACA1808Bb8c36D353436bb96091";
+
+    try {
+        await hre.run('verify:verify', { 
+            address: deployOutput.timelockContract,  
+            constructorArguments: [
+                minDelayTimelock,
+                [timelockAdminAddress],
+                [timelockAdminAddress],
+                timelockAdminAddress
+            ], 
+        });
+    } catch (error) {
+        expect(error.message.toLowerCase().includes('already verified')).to.be.equal(true);
+    }
 }
 
 main()

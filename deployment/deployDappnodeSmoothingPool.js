@@ -1,7 +1,7 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-console, no-inner-declarations, no-undef, import/no-unresolved */
 
-const { ethers } = require('hardhat');
+const { ethers, upgrades } = require('hardhat');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
@@ -22,13 +22,18 @@ async function main() {
         console.log('using Mnemonic', deployer.address);
     }
 
-    // Deploy parameters
+    // Deploy parameters Smoothing Pool
     const governanceAddress = deployer.address;
     const subscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther('0.08'));
     const poolFee = 1000;
     const feeRecipient = '0xE46F9bE81f9a3ACA1808Bb8c36D353436bb96091';
     const checkPointSlotSize = 7200;
     const quorum = 1;
+
+    // Deploy parameters Timelock
+    const timelockControllerAdress = "0xE46F9bE81f9a3ACA1808Bb8c36D353436bb96091";
+    const minDelayTimelock = 3600;
+
 
     /*
      * Deploy dappnode smoothing pool
@@ -74,8 +79,32 @@ async function main() {
     console.log('checkpointSlotSize:', await dappnodeSmoothingPool.checkpointSlotSize());
     console.log('quorum:', await dappnodeSmoothingPool.quorum());
 
+
+    // deploy timelock
+    const timelockContractFactory = await ethers.getContractFactory("TimelockController", deployer);
+
+    console.log("\n#######################");
+    console.log("##### Deployment TimelockContract  #####");
+    console.log("#######################");
+    console.log("minDelayTimelock:", minDelayTimelock);
+    console.log("timelockAdminAddress:", timelockControllerAdress);
+    const timelockContract = await timelockContractFactory.deploy(
+        minDelayTimelock,
+        [timelockControllerAdress],
+        [timelockControllerAdress],
+        timelockControllerAdress,
+    );
+    await timelockContract.deployed();
+
+    console.log('#######################\n');
+    console.log('TimelockContract deployed to:', timelockContract.address);
+    console.log('minDelay:', await timelockContract.getMinDelay());
+
+    await upgrades.admin.transferProxyAdminOwnership(timelockContract.address, deployer);
+
     const outputJson = {
         dappnodeSmoothingPool: dappnodeSmoothingPool.address,
+        timelockContract: timelockContract.address
     };
     fs.writeFileSync(pathOutputJson, JSON.stringify(outputJson, null, 1));
 }
