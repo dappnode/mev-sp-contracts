@@ -29,7 +29,7 @@ Contract responsible to manage the subscriptions and rewards of the dappnode smo
   ) external
 ```
 Be able to receive ether donations and MEV rewards
-Oracle will be able to differenciate between MEV rewards and donations and distribute rewards accordingly
+Oracle will be able to differentiate between MEV rewards and donations and distribute rewards accordingly
 
 
 
