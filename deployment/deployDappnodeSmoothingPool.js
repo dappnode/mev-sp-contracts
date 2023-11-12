@@ -31,7 +31,7 @@ async function main() {
     }
 
     // Deploy parameters Smoothing Pool
-    const governanceAddress = deployer.address;
+    const governanceAddress = '0x67C1A3e1Ce35c31Cd4fC27F987821b48cA928d57';
     const subscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther('0.01'));
     const poolFee = 700;
     const feeRecipient = governanceAddress;
@@ -86,7 +86,7 @@ async function main() {
     console.log('checkpointSlotSize:', await dappnodeSmoothingPool.checkpointSlotSize());
     console.log('quorum:', await dappnodeSmoothingPool.quorum());
 
-    
+
     // deploy timelock
     const timelockContractFactory = await ethers.getContractFactory("TimelockController", deployer);
 
