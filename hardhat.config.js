@@ -4,6 +4,7 @@ require("hardhat-gas-reporter");
 require("solidity-coverage");
 require("@nomiclabs/hardhat-etherscan");
 require("@openzeppelin/hardhat-upgrades");
+require("hardhat-dependency-compiler");
 
 DEFAULT_MNEMONIC = "test test test test test test test test test test test junk";
 
@@ -14,6 +15,12 @@ DEFAULT_MNEMONIC = "test test test test test test test test test test test junk"
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
+  dependencyCompiler: {
+    paths: [
+        "@openzeppelin/contracts/governance/TimelockController.sol",
+    ], // ,
+    // keep: true
+},
   solidity: {
     compilers: [
       {

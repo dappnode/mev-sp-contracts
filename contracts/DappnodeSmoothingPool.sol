@@ -232,7 +232,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
 
     /**
      * @notice Be able to receive ether donations and MEV rewards
-     * Oracle will be able to differenciate between MEV rewards and donations and distribute rewards accordingly
+     * Oracle will be able to differentiate between MEV rewards and donations and distribute rewards accordingly
      **/
     fallback() external payable {
         emit EtherReceived(msg.sender, msg.value);
@@ -396,10 +396,10 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
                 lastVotedReportHash
             ];
 
-            // Substract a vote on the last voted report
+            // Subtract a vote on the last voted report
             // That report could have 0 votes because:
             // - The report was already consolidated
-            // - Were substracted all the votes from that report
+            // - Were subtracted all the votes from that report
             if (lastVotedReport.votes > 0) {
                 unchecked {
                     lastVotedReport.votes--;
@@ -500,7 +500,7 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
                 lastVotedReportHash
             ];
 
-            // Substract a vote of this oracle member
+            // Subtract a vote of this oracle member
             // If the votes == 0, that report was already consolidated
             if (lastVotedReport.votes > 0) {
                 unchecked {
