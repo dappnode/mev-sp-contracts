@@ -1,0 +1,259 @@
+{
+  "manifestVersion": "3.2",
+  "admin": {
+    "address": "0xaf2217CB552E4b1db334B620E49a87E85e7AAAc6",
+    "txHash": "0xd52be646c9deefe3177e72e45bd79b16aa9bc2bc62d8a8921c8c8fe4951d9a75"
+  },
+  "proxies": [
+    {
+      "address": "0xAdFb8D27671F14f297eE94135e266aAFf8752e35",
+      "txHash": "0x00e6915cf2a8f6506f1e23171fcb4ae3fe37524b711cb09c2f07fb49124d45f4",
+      "kind": "transparent"
+    }
+  ],
+  "impls": {
+    "24f896161d5258c80d03b9da0970175d120a16fc46d297a2a27363389217cf63": {
+      "address": "0xF60fC95C17D35937924CB52a653E4b7C1B869662",
+      "txHash": "0x2c6f542820789cec6b3d39ed400f61debb2e69257922a4a330db70d3be118db7",
+      "layout": {
+        "solcVersion": "0.8.21",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "52",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "subscriptionCollateral",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_uint256",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:26"
+          },
+          {
+            "label": "rewardsRoot",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_bytes32",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:30"
+          },
+          {
+            "label": "claimedBalance",
+            "offset": 0,
+            "slot": "103",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:33"
+          },
+          {
+            "label": "rewardRecipient",
+            "offset": 0,
+            "slot": "104",
+            "type": "t_mapping(t_address,t_address)",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:37"
+          },
+          {
+            "label": "poolFee",
+            "offset": 0,
+            "slot": "105",
+            "type": "t_uint256",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:43"
+          },
+          {
+            "label": "poolFeeRecipient",
+            "offset": 0,
+            "slot": "106",
+            "type": "t_address",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:46"
+          },
+          {
+            "label": "deploymentBlockNumber",
+            "offset": 0,
+            "slot": "107",
+            "type": "t_uint256",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:49"
+          },
+          {
+            "label": "lastConsolidatedSlot",
+            "offset": 0,
+            "slot": "108",
+            "type": "t_uint64",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:54"
+          },
+          {
+            "label": "checkpointSlotSize",
+            "offset": 8,
+            "slot": "108",
+            "type": "t_uint64",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:57"
+          },
+          {
+            "label": "quorum",
+            "offset": 16,
+            "slot": "108",
+            "type": "t_uint64",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:60"
+          },
+          {
+            "label": "governance",
+            "offset": 0,
+            "slot": "109",
+            "type": "t_address",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:63"
+          },
+          {
+            "label": "pendingGovernance",
+            "offset": 0,
+            "slot": "110",
+            "type": "t_address",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:66"
+          },
+          {
+            "label": "addressToVotedReportHash",
+            "offset": 0,
+            "slot": "111",
+            "type": "t_mapping(t_address,t_bytes32)",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:70"
+          },
+          {
+            "label": "reportHashToReport",
+            "offset": 0,
+            "slot": "112",
+            "type": "t_mapping(t_bytes32,t_struct(Report)3867_storage)",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:73"
+          },
+          {
+            "label": "oracleMembers",
+            "offset": 0,
+            "slot": "113",
+            "type": "t_array(t_address)dyn_storage",
+            "contract": "DappnodeSmoothingPool",
+            "src": "contracts/DappnodeSmoothingPool.sol:76"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_address)dyn_storage": {
+            "label": "address[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_address)": {
+            "label": "mapping(address => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_bytes32)": {
+            "label": "mapping(address => bytes32)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Report)3867_storage)": {
+            "label": "mapping(bytes32 => struct DappnodeSmoothingPool.Report)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Report)3867_storage": {
+            "label": "struct DappnodeSmoothingPool.Report",
+            "members": [
+              {
+                "label": "slot",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "votes",
+                "type": "t_uint64",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    }
+  }
+}

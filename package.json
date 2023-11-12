@@ -38,6 +38,9 @@
     "deploy:goerli": "npx hardhat run deployment/deployDappnodeSmoothingPool.js --network goerli",
     "verify:goerli": "npx hardhat run deployment/verifyDappnodeSmoothingPool.js --network goerli",
     "upgrade:goerli": "npx hardhat run upgrade/simpleUpgrade.js --network goerli",
+    "deploy:mainnet": "npx hardhat run deployment/deployDappnodeSmoothingPool.js --network mainnet",
+    "verify:mainnet": "npx hardhat run deployment/verifyDappnodeSmoothingPool.js --network mainnet",
+    "upgrade:mainnet": "npx hardhat run upgrade/simpleUpgrade.js --network mainnet",
     "coverage": "npx hardhat coverage",
     "gas:report": "REPORT_GAS=true npx hardhat test",
     "gas:report:file": "REPORT_GAS=true REPORT_GAS_FILE=true npx hardhat test"
