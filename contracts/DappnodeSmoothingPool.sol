@@ -173,6 +173,16 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     event AcceptGovernance(address newGovernance);
 
     /**
+     * @dev Emitted when a validator is banned by the DAO
+     */
+    event BanValidator(uint64 validatorID);
+
+    /**
+     * @dev Emitted when a validator is unbanned by the DAO
+     */
+    event UnbanValidator(uint64 validatorID);
+
+    /**
      * @param _governance Governance address
      * @param _subscriptionCollateral Subscription collateral
      * @param _poolFee Pool Fee
@@ -243,6 +253,24 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
     ///////////////////////
 
     /**
+     * @notice Subscribe a validator ID to the smoothing pool
+     * @param validatorID Validator ID
+     */
+    function subscribeValidator(uint64 validatorID) external payable {
+        // Check collateral
+        require(
+            msg.value == subscriptionCollateral,
+            "DappnodeSmoothingPool::subscribeValidator: msg.value does not equal subscription collateral"
+        );
+
+        emit SubscribeValidator(
+            msg.sender,
+            subscriptionCollateral,
+            validatorID
+        );
+    }
+
+    /**
      * @notice Subscribe multiple validators to the smoothing pool
      * The function won't check if there are duplicated validatorIDs
      * @param validatorIDArray Validator ID array
@@ -268,24 +296,6 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
                 i += 1;
             }
         }
-    }
-
-    /**
-     * @notice Subscribe a validator ID to the smoothing pool
-     * @param validatorID Validator ID
-     */
-    function subscribeValidator(uint64 validatorID) external payable {
-        // Check collateral
-        require(
-            msg.value == subscriptionCollateral,
-            "DappnodeSmoothingPool::subscribeValidator: msg.value does not equal subscription collateral"
-        );
-
-        emit SubscribeValidator(
-            msg.sender,
-            subscriptionCollateral,
-            validatorID
-        );
     }
 
     /**
@@ -352,6 +362,25 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
      */
     function unsubscribeValidator(uint64 validatorID) external {
         emit UnsubscribeValidator(msg.sender, validatorID);
+    }
+
+    /**
+     * @notice Unsubscribe multiple validators IDs from smoothing pool
+     * This call will only take effect in the oracle
+     * if the msg.sender is the withdrawal address of that validator
+     * @param validatorIDArray Validator ID array
+     */
+    function unsubscribeValidators(
+        uint64[] calldata validatorIDArray
+    ) external {
+        // Emit a single event for every validator ID unsubscribed
+        for (uint256 i = 0; i < validatorIDArray.length; ) {
+            emit UnsubscribeValidator(msg.sender, validatorIDArray[i]);
+
+            unchecked {
+                i += 1;
+            }
+        }
     }
 
     ////////////////////
@@ -533,6 +562,42 @@ contract DappnodeSmoothingPool is OwnableUpgradeable {
         );
         quorum = newQuorum;
         emit UpdateQuorum(newQuorum);
+    }
+
+    /**
+     * @notice Ban validators from smoothing pool
+     * Only the governance can call this function
+     * @param validatorIDArray Validator ID array
+     */
+    function banValidators(
+        uint64[] calldata validatorIDArray
+    ) external onlyGovernance {
+        // Emit a single event for every validator ID banned
+        for (uint256 i = 0; i < validatorIDArray.length; ) {
+            emit BanValidator(validatorIDArray[i]);
+
+            unchecked {
+                i += 1;
+            }
+        }
+    }
+
+    /**
+     * @notice Unban validators from smoothing pool
+     * Only the governance can call this function
+     * @param validatorIDArray Validator ID array
+     */
+    function unbanValidators(
+        uint64[] calldata validatorIDArray
+    ) external onlyGovernance {
+        // Emit a single event for every validator ID unbanned
+        for (uint256 i = 0; i < validatorIDArray.length; ) {
+            emit UnbanValidator(validatorIDArray[i]);
+
+            unchecked {
+                i += 1;
+            }
+        }
     }
 
     /**

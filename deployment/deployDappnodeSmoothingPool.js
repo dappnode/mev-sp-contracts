@@ -14,7 +14,7 @@ async function main() {
     // Check that there's no previous OZ deployment
     if (fs.existsSync(pathOZUpgradability)) {
         throw new Error(
-            `There's upgradability information from previous deployments, it's mandatory to erase them before start a new one, path: ${pathOZUpgradability}`
+            `There's upgradability information from previous deployments, it's mandatory to erase them before start a new one, path: ${pathOZUpgradability}`,
         );
     }
 
@@ -31,7 +31,7 @@ async function main() {
     }
 
     // Deploy parameters Smoothing Pool
-    const governanceAddress = '0x67C1A3e1Ce35c31Cd4fC27F987821b48cA928d57';
+    const governanceAddress = '0x67C1A3e1Ce35c31Cd4fC27F987821b48cA928d57 ';
     const subscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther('0.01'));
     const poolFee = 700;
     const feeRecipient = governanceAddress;
@@ -86,15 +86,14 @@ async function main() {
     console.log('checkpointSlotSize:', await dappnodeSmoothingPool.checkpointSlotSize());
     console.log('quorum:', await dappnodeSmoothingPool.quorum());
 
-
     // deploy timelock
-    const timelockContractFactory = await ethers.getContractFactory("TimelockController", deployer);
+    const timelockContractFactory = await ethers.getContractFactory('TimelockController', deployer);
 
-    console.log("\n#######################");
-    console.log("##### Deployment TimelockContract  #####");
-    console.log("#######################");
-    console.log("minDelayTimelock:", minDelayTimelock);
-    console.log("timelockAdminAddress:", timelockControllerAdress);
+    console.log('\n#######################');
+    console.log('##### Deployment TimelockContract  #####');
+    console.log('#######################');
+    console.log('minDelayTimelock:', minDelayTimelock);
+    console.log('timelockAdminAddress:', timelockControllerAdress);
     const timelockContract = await timelockContractFactory.deploy(
         minDelayTimelock,
         [timelockControllerAdress],
@@ -115,7 +114,7 @@ async function main() {
 
     const outputJson = {
         dappnodeSmoothingPool: dappnodeSmoothingPool.address,
-        timelockContract: timelockContract.address
+        timelockContract: timelockContract.address,
     };
     fs.writeFileSync(pathOutputJson, JSON.stringify(outputJson, null, 1));
 }

@@ -5,8 +5,12 @@ module.exports = {
     env: {
         node: true,
         mocha: true,
+        es2020: true
     },
     extends: 'airbnb-base',
+    parserOptions: {
+    "ecmaVersion": 2020
+    },
     rules: {
         indent: ['error', 4],
         'mocha/no-exclusive-tests': 'error',

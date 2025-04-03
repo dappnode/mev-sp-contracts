@@ -1,4 +1,4 @@
-/* eslint-disable import/no-dynamic-require, no-await-in-loop, no-restricted-syntax, guard-for-in */
+/* eslint-disable import/no-dynamic-require, no-await-in-loop, no-restricted-syntax, guard-for-in, import/no-unresolved */
 require('dotenv').config();
 const hre = require('hardhat');
 const { expect } = require('chai');
@@ -17,7 +17,7 @@ async function main() {
     }
 
     const minDelayTimelock = 604800;
-    const timelockAdminAddress = "0x67C1A3e1Ce35c31Cd4fC27F987821b48cA928d57";
+    const timelockAdminAddress = '0x67C1A3e1Ce35c31Cd4fC27F987821b48cA928d57';
 
     try {
         await hre.run('verify:verify', {
@@ -26,7 +26,7 @@ async function main() {
                 minDelayTimelock,
                 [timelockAdminAddress],
                 [timelockAdminAddress],
-                timelockAdminAddress
+                timelockAdminAddress,
             ],
         });
     } catch (error) {

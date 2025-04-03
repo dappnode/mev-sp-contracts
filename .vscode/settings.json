@@ -3,4 +3,12 @@
   "solidity.linter": "solhint",
   "solidity.compileUsingRemoteVersion": "v0.8.21+commit.d9974bed",
   "solidity.remappings": ["@openzeppelin/=node_modules/@openzeppelin"],
+  "[solidity]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  }
 }
