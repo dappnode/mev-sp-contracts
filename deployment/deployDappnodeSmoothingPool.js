@@ -1,125 +1,135 @@
 /* eslint-disable no-await-in-loop */
-/* eslint-disable no-console, no-inner-declarations, no-undef, import/no-unresolved */
+/* eslint-disable no-console */
 
-const { ethers, upgrades } = require('hardhat');
-const path = require('path');
-const fs = require('fs');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+const { ethers, upgrades } = require("hardhat");
+const path = require("path");
+const fs = require("fs");
+require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
 
-const pathOutputJson = path.join(__dirname, './deploy_output.json');
-// const deployParameters = require('./deploy_parameters.json');
-const pathOZUpgradability = path.join(__dirname, `../.openzeppelin/${process.env.HARDHAT_NETWORK}.json`);
+const pathOutputJson = path.join(__dirname, "./deploy_output.json");
+const pathOZUpgradability = path.join(
+  __dirname,
+  `../.openzeppelin/${process.env.HARDHAT_NETWORK}.json`
+);
 
 async function main() {
-    // Check that there's no previous OZ deployment
-    if (fs.existsSync(pathOZUpgradability)) {
-        throw new Error(
-            `There's upgradability information from previous deployments, it's mandatory to erase them before start a new one, path: ${pathOZUpgradability}`,
-        );
-    }
-
-    const atemptsDeployProxy = 20;
-    const currentProvider = ethers.provider;
-
-    let deployer;
-    if (process.env.PVTK_DEPLOYMENT) {
-        deployer = new ethers.Wallet(process.env.PVTK_DEPLOYMENT, currentProvider);
-        console.log('using pvtKey', deployer.address);
-    } else {
-        deployer = ethers.Wallet.fromMnemonic(process.env.MNEMONIC, 'm/44\'/60\'/0\'/0/0').connect(currentProvider);
-        console.log('using Mnemonic', deployer.address);
-    }
-
-    // Deploy parameters Smoothing Pool
-    const governanceAddress = '0x67C1A3e1Ce35c31Cd4fC27F987821b48cA928d57 ';
-    const subscriptionCollateral = ethers.BigNumber.from(ethers.utils.parseEther('0.01'));
-    const poolFee = 700;
-    const feeRecipient = governanceAddress;
-    const checkPointSlotSize = 28800; // 4 days
-    const quorum = 1;
-
-    // Deploy parameters Timelock
-    const timelockControllerAdress = governanceAddress;
-    const minDelayTimelock = 604800; // 7 days
-
-    /*
-     * Deploy dappnode smoothing pool
-     */
-    const dappnodeSmoothingPoolFactory = await ethers.getContractFactory('DappnodeSmoothingPool', deployer);
-    let dappnodeSmoothingPool;
-    for (let i = 0; i < atemptsDeployProxy; i++) {
-        try {
-            dappnodeSmoothingPool = await upgrades.deployProxy(
-                dappnodeSmoothingPoolFactory,
-                [
-                    governanceAddress,
-                    subscriptionCollateral,
-                    poolFee,
-                    feeRecipient,
-                    checkPointSlotSize,
-                    quorum,
-                ],
-            );
-            break;
-        } catch (error) {
-            console.log(`attempt ${i}`);
-            console.log('upgrades.deployProxy of dappnode smoothing pool ', error);
-        }
-    }
-
-    console.log('\n#######################');
-    console.log('##### Deployment dappnodeSmoothingPool #####');
-    console.log('#######################');
-    console.log('deployer:', deployer.address);
-
-    console.log('#######################\n');
-    console.log('dappnodeSmoothingPool deployed to:', dappnodeSmoothingPool.address);
-
-    console.log('\n#######################');
-    console.log('#####    Checks    #####');
-    console.log('#######################');
-    console.log('subscriptionCollateral:', await dappnodeSmoothingPool.subscriptionCollateral());
-    console.log('governanceAddress:', await dappnodeSmoothingPool.governance());
-    console.log('owner:', await dappnodeSmoothingPool.owner());
-    console.log('poolFee:', await dappnodeSmoothingPool.poolFee());
-    console.log('poolFeeRecipient:', await dappnodeSmoothingPool.poolFeeRecipient());
-    console.log('checkpointSlotSize:', await dappnodeSmoothingPool.checkpointSlotSize());
-    console.log('quorum:', await dappnodeSmoothingPool.quorum());
-
-    // deploy timelock
-    const timelockContractFactory = await ethers.getContractFactory('TimelockController', deployer);
-
-    console.log('\n#######################');
-    console.log('##### Deployment TimelockContract  #####');
-    console.log('#######################');
-    console.log('minDelayTimelock:', minDelayTimelock);
-    console.log('timelockAdminAddress:', timelockControllerAdress);
-    const timelockContract = await timelockContractFactory.deploy(
-        minDelayTimelock,
-        [timelockControllerAdress],
-        [timelockControllerAdress],
-        timelockControllerAdress,
+  if (fs.existsSync(pathOZUpgradability)) {
+    throw new Error(
+      `There's upgradability information from previous deployments. Please delete:\n${pathOZUpgradability}`
     );
-    await timelockContract.deployed();
+  }
 
-    console.log('#######################\n');
-    console.log('TimelockContract deployed to:', timelockContract.address);
-    console.log('minDelay:', await timelockContract.getMinDelay());
+  const [deployer] = await ethers.getSigners();
+  console.log("Using deployer:", deployer.address);
 
-    // Transfer admin ownership
-    await upgrades.admin.transferProxyAdminOwnership(timelockContract.address, deployer);
+  const governanceAddress = "0xafF0CA253b97e54440965855cec0A8a2E2399896";
+  const subscriptionCollateral = BigInt("10000000000000000"); // 0.01 ETH
+  const poolFee = 1000;
+  const feeRecipient = governanceAddress;
+  const checkPointSlotSize = 7200; // 1 day
+  const quorum = 1;
 
-    // Transfer dappnodeSmoothingPool ownership
-    await (await dappnodeSmoothingPool.transferOwnership(governanceAddress)).wait();
+  const minDelayTimelock = 3600; // 1h
+  const timelockControllerAddress = governanceAddress;
 
-    const outputJson = {
-        dappnodeSmoothingPool: dappnodeSmoothingPool.address,
-        timelockContract: timelockContract.address,
-    };
-    fs.writeFileSync(pathOutputJson, JSON.stringify(outputJson, null, 1));
+  // Deploy Proxy
+  const factory = await ethers.getContractFactory(
+    "DappnodeSmoothingPool",
+    deployer
+  );
+  let dappnodeSmoothingPool;
+
+  for (let i = 0; i < 20; i++) {
+    try {
+      dappnodeSmoothingPool = await upgrades.deployProxy(factory, [
+        governanceAddress,
+        subscriptionCollateral,
+        poolFee,
+        feeRecipient,
+        checkPointSlotSize,
+        quorum,
+      ]);
+      await dappnodeSmoothingPool.waitForDeployment();
+      break;
+    } catch (error) {
+      console.log(`Deploy attempt ${i + 1} failed:`, error.message);
+    }
+  }
+
+  if (!dappnodeSmoothingPool) {
+    console.error("❌ Failed to deploy the contract after multiple attempts.");
+    process.exit(1);
+  }
+
+  const deployedAddress = await dappnodeSmoothingPool.getAddress();
+  console.log("\n✅ DappnodeSmoothingPool deployed to:", deployedAddress);
+  console.log("Deployer:", deployer.address);
+
+  console.log("\n📋 Contract configuration:");
+  console.log(
+    "subscriptionCollateral:",
+    (await dappnodeSmoothingPool.subscriptionCollateral()).toString()
+  );
+  console.log("governance:", await dappnodeSmoothingPool.governance());
+  console.log("owner:", await dappnodeSmoothingPool.owner());
+  console.log("poolFee:", await dappnodeSmoothingPool.poolFee());
+  console.log(
+    "poolFeeRecipient:",
+    await dappnodeSmoothingPool.poolFeeRecipient()
+  );
+  console.log(
+    "checkpointSlotSize:",
+    await dappnodeSmoothingPool.checkpointSlotSize()
+  );
+  console.log("quorum:", await dappnodeSmoothingPool.quorum());
+
+  // Deploy Timelock
+  const TimelockFactory = await ethers.getContractFactory(
+    "TimelockController",
+    deployer
+  );
+  const timelockContract = await TimelockFactory.deploy(
+    minDelayTimelock,
+    [timelockControllerAddress],
+    [timelockControllerAddress],
+    timelockControllerAddress
+  );
+  await timelockContract.waitForDeployment();
+
+  const timelockAddress = await timelockContract.getAddress();
+  console.log("\n✅ TimelockController deployed to:", timelockAddress);
+  console.log("minDelay:", (await timelockContract.getMinDelay()).toString());
+
+  // Optional: Transfer ProxyAdmin ownership if allowed
+  try {
+    console.log("\n🔁 Attempting to transfer ProxyAdmin ownership...");
+    await upgrades.admin.transferProxyAdminOwnership(timelockAddress);
+    console.log("✅ ProxyAdmin ownership transferred to timelock.");
+  } catch (e) {
+    console.warn(
+      "⚠️ Skipped transferProxyAdminOwnership (maybe not current admin):",
+      e.message
+    );
+  }
+
+  // Transfer contract ownership to governance address
+  const tx = await dappnodeSmoothingPool.transferOwnership(governanceAddress);
+  await tx.wait();
+  console.log(
+    "✅ Contract ownership transferred to governance:",
+    governanceAddress
+  );
+
+  // Write addresses to file
+  const outputJson = {
+    dappnodeSmoothingPool: deployedAddress,
+    timelockContract: timelockAddress,
+  };
+  fs.writeFileSync(pathOutputJson, JSON.stringify(outputJson, null, 2));
+  console.log("\n📦 Output written to:", pathOutputJson);
 }
 
-main().catch((e) => {
-    console.error(e);
-    process.exit(1);
+main().catch((err) => {
+  console.error("❌ Deployment failed:", err);
+  process.exit(1);
 });
